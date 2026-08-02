@@ -2,6 +2,116 @@
 import { useState } from "react";
 import type {ReactNode} from "react";
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
+import { Tooltip, Button, Dropdown } from "@heroui/react";
+import { SettingsModal } from "./SettingsModal";
+import { LanPeersPanel } from "./LanPeersPanel";
+import * as React from "react";
+
+function Topbar() {
+  const sendMessage = (action: string) => {
+    if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
+      (window as any).external.sendMessage(action);
+    }
+  };
+
+  const tools = [
+    { icon: "B", label: "Bold", shortcut: "Ctrl+B" },
+    { icon: "I", label: "Italic", shortcut: "Ctrl+I" },
+    { icon: "H", label: "Heading", shortcut: "Ctrl+H" },
+    { icon: "</>", label: "Code Block", shortcut: "Ctrl+Alt+C" },
+    { icon: "☑", label: "Task List", shortcut: "Ctrl+Shift+T" },
+  ];
+
+  return (
+    <div 
+      className="h-12 shrink-0 bg-zinc-900 border-b border-zinc-800/80 flex items-center justify-between px-2 select-none z-50 backdrop-blur-md"
+      style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+    >
+      <div className="flex items-center gap-6" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+        <div className="flex items-center gap-4 pl-2">
+          <Dropdown placement="bottom-start">
+            <Dropdown.Trigger>
+              <Button 
+                variant="light"
+                disableRipple
+                className="min-w-0 px-3 h-7 text-[11px] font-medium tracking-wide text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 rounded transition-colors focus:outline-none"
+              >
+                File
+              </Button>
+            </Dropdown.Trigger>
+            <Dropdown.Popover className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-2xl v3 \'/min-w-50" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+              <Dropdown.Menu aria-label="File Options" className="p-1">
+                <Dropdown.Item key="new" className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
+                  New Document
+                </Dropdown.Item>
+                <Dropdown.Item key="open" className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
+                  Open...
+                </Dropdown.Item>
+                <Dropdown.Item key="save" className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
+                  Save
+                </Dropdown.Item>
+                <Dropdown.Item key="close" className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
+                  Close folder
+                </Dropdown.Item>
+                <Dropdown.Item key="quit" onPress={() => sendMessage("close")} className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
+                  Quit Synq
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
+        </div>
+        
+        {/* Formatting Tools */}
+        <div className="flex items-center gap-1.5 border-l border-zinc-800/80 pl-6">
+          {tools.map(tool => (
+            <Tooltip key={tool.label}>
+              <Tooltip.Trigger>
+                <Button 
+                  variant="secondary" 
+                  className="w-8 h-8 p-0 min-w-0 bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 border-none transition-all font-medium rounded-md" 
+                  aria-label={tool.label}
+                >
+                  {tool.icon}
+                </Button>
+              </Tooltip.Trigger>
+              <Tooltip.Content className="bg-zinc-800 border border-zinc-700 text-zinc-200 px-3 py-1.5 text-xs shadow-xl rounded-md">
+                <Tooltip.Arrow className="fill-zinc-800" />
+                {tool.label} <span className="text-zinc-500 ml-2 font-mono text-[10px]">{tool.shortcut}</span>
+              </Tooltip.Content>
+            </Tooltip>
+          ))}
+          <div className="w-px h-5 bg-zinc-800 mx-2"></div>
+          <Tooltip>
+            <Tooltip.Trigger>
+              <Button variant="secondary" className="w-8 h-8 p-0 min-w-0 bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 border-none transition-all rounded-md">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </Button>
+            </Tooltip.Trigger>
+            <Tooltip.Content className="bg-zinc-800 border border-zinc-700 text-zinc-200 px-3 py-1.5 text-xs shadow-xl rounded-md">
+              <Tooltip.Arrow className="fill-zinc-800" />
+              Link <span className="text-zinc-500 ml-2 font-mono text-[10px]">Ctrl+K</span>
+            </Tooltip.Content>
+          </Tooltip>
+        </div>
+      </div>
+
+      {/* Right Side  */}
+      <div className="flex items-center h-full gap-2" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+        <div className="flex items-center gap-3 pr-4 border-zinc-800/80 h-full">
+          <LanPeersPanel />
+          <div className="w-px h-5 bg-zinc-800 mx-1"></div>
+          <SettingsModal />
+          <Button className="bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 hover:border-emerald-500 transition-all h-7 text-xs font-medium px-4 rounded-md shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+            Share
+          </Button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -12,6 +122,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-zinc-950 text-zinc-50 dark selection:bg-emerald-500/30 font-sans">
+      <Topbar />
       <PanelGroup direction="horizontal" className="flex-1 w-full overflow-hidden">
         {/* Sidebar */}
         <Panel defaultSize="20" minSize="15" maxSize="40" className="flex flex-col bg-zinc-900/30 backdrop-blur-md">
@@ -38,7 +149,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         </Panel>
 
         {/* Resizer */}
-        <PanelResizeHandle className="w-1 hover:bg-emerald-500/50 active:bg-emerald-500 transition-colors cursor-col-resize z-50 bg-zinc-800" />
+        <PanelResizeHandle className="w-1 hover:bg-emerald-500/50 active:bg-emerald-500 transition-colors cursor-col-resize z-50" />
 
         {/* Main Workspace */}
         <Panel defaultSize="80" className="flex flex-col overflow-hidden relative bg-zinc-950 shadow-inner">

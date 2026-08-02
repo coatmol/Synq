@@ -69,10 +69,24 @@ internal class Program
 
         var window = new PhotinoWindow()
             .SetTitle("Synq - Local-First Markdown Editor")
-            .SetFileSystemAccessEnabled(true)
             .SetSize(1280, 800)
             .Center()
+            .SetContextMenuEnabled(false)
+            .SetDevToolsEnabled(true)
+            .SetSmoothScrollingEnabled(true)
+            .SetFileSystemAccessEnabled(true)
             .Load(startUrl);
+
+        window.RegisterWebMessageReceivedHandler((sender, message) =>
+        {
+            var win = (PhotinoWindow)sender!;
+            switch (message)
+            {
+                case "close":
+                    win.Close();
+                    break;
+            }
+        });
 
         window.WindowClosing += (sender, e) =>
         {
