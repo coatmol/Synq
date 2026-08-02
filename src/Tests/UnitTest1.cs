@@ -1,4 +1,4 @@
-﻿using Host;
+using Engine;
 
 namespace Tests;
 
@@ -12,16 +12,15 @@ public class Tests
     [Test]
     public void Test1()
     {
-        var peerA = new LwwRegister("Hello, World!", "Peer A");
-        var peerB = new LwwRegister("Hello, World!", "Peer B");
+        var sequence = new TextSequence("Peer A");
+
+        sequence.LocalInsert(0, "Hello, World!");
         
-        peerA.Update("Hello, Universe!", new LogicalTimestamp("Peer A", 1));
-        peerB.Update("Hello, Multiverse!", new LogicalTimestamp("Peer B", 1));
+        sequence.LocalDelete(11);
+        sequence.RemoteMerge(
+            new CharNode(new PositionIdentifier([60], "Peer A", 11), 'd')
+                { IsDeleted = false });
         
-        peerA.Merge(peerB);
-        peerB.Merge(peerA);
-        
-        Assert.AreEqual("Hello, Multiverse!", peerA.Value);
-        Assert.AreEqual("Hello, Multiverse!", peerB.Value);
+        Assert.AreEqual("Hello, World!", sequence.ToString());
     }
 }

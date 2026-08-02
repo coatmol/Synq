@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Host", "src\Host\Host.csproj", "{5F7A7008-9936-43A5-9734-BC72D3D658CA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Engine", "src\Engine\Engine.csproj", "{5F7A7008-9936-43A5-9734-BC72D3D658CA}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Desktop", "src\Desktop\Desktop.csproj", "{2450E973-CD7A-4FE1-A572-14BAED2154CB}"
 EndProject

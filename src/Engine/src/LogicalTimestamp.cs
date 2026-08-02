@@ -1,4 +1,4 @@
-namespace Host;
+namespace Engine;
 
 public readonly record struct LogicalTimestamp(string PeerId, int Counter) : IComparable<LogicalTimestamp>
 {
@@ -6,7 +6,7 @@ public readonly record struct LogicalTimestamp(string PeerId, int Counter) : ICo
     {
         if (Counter != other.Counter)
             return Counter.CompareTo(other.Counter);
-        
+
         return string.Compare(PeerId, other.PeerId, StringComparison.Ordinal);
     }
 }
