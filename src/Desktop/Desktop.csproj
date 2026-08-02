@@ -48,7 +48,7 @@
     <!-- Include frontend dist files in the publish output -->
     <Target Name="PublishFrontend" BeforeTargets="ComputeFilesToPublish">
         <ItemGroup>
-            <DistFiles Include="$(FrontendRoot)dist\**\*.*" />
+            <DistFiles Include="$(FrontendRoot)dist\**\*.*"/>
             <ResolvedFileToPublish Include="@(DistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
                 <RelativePath>wwwroot\%(RecursiveDir)%(FileName)%(Extension)</RelativePath>
                 <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
