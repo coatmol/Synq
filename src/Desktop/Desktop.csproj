@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -6,5 +6,43 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Makaretu.Dns.Multicast.New" Version="0.38.0"/>
+        <PackageReference Include="Makaretu.Dns.New" Version="3.1.2"/>
+        <PackageReference Include="Photino.NET" Version="4.0.16"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Engine\Engine.csproj"/>
+    </ItemGroup>
+
+    <PropertyGroup>
+        <FrontendRoot>..\client\</FrontendRoot>
+
+        <!-- Auto-detect package manager based on lockfiles -->
+        <NodePackageManager Condition="Exists('$(FrontendRoot)bun.lockb')">bun</NodePackageManager>
+        <NodePackageManager Condition="Exists('$(FrontendRoot)pnpm-lock.yaml')">pnpm</NodePackageManager>
+        <NodePackageManager Condition="Exists('$(FrontendRoot)yarn.lock')">yarn</NodePackageManager>
+        <!-- Fallback to npm if nothing else is found -->
+        <NodePackageManager Condition="'$(NodePackageManager)' == ''">npm</NodePackageManager>
+    </PropertyGroup>
+
+    <!-- Run build using the detected package manager -->
+    <Target Name="BuildFrontend" BeforeTargets="Build">
+        <Message Importance="high" Text="Building frontend with $(NodePackageManager)..."/>
+        <Exec Command="$(NodePackageManager) install" WorkingDirectory="$(FrontendRoot)" Condition="!Exists('$(FrontendRoot)node_modules')"/>
+        <Exec Command="$(NodePackageManager) run build" WorkingDirectory="$(FrontendRoot)"/>
+    </Target>
+
+    <!-- Copy the Vite dist folder to the C# output directory -->
+    <Target Name="CopyFrontendToOutput" AfterTargets="BuildFrontend;Build">
+        <ItemGroup>
+            <FrontendFiles Include="$(FrontendRoot)dist\**\*.*"/>
+        </ItemGroup>
+        <Copy SourceFiles="@(FrontendFiles)"
+              DestinationFolder="$(OutDir)wwwroot\%(RecursiveDir)"
+              SkipUnchangedFiles="true"/>
+    </Target>
 
 </Project>

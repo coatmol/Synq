@@ -52,13 +52,9 @@ public class TextSequence
         activeNode.IsDeleted = true;
     }
 
-    public void LocalDelete(int index, string value)
+    public void LocalDelete(int index, int length)
     {
-        foreach (var c in value)
-        {
-            LocalDelete(index);
-            index++;
-        }
+        for (var i = length - 1; i >= 0; i--) LocalDelete(index + i);
     }
 
     public void RemoteMerge(CharNode incomingNode)
@@ -69,19 +65,20 @@ public class TextSequence
             var index = _nodes.BinarySearch(incomingNode, Comparer<CharNode>.Create((a, b) => a.Id.CompareTo(b.Id)));
             if (index < 0) index = ~index;
             _nodes.Insert(index, incomingNode);
-        } else if (incomingNode.IsDeleted)
+        }
+        else if (incomingNode.IsDeleted)
         {
             existing = existing.Value with { IsDeleted = true };
             var index = _nodes.FindIndex(n => n.Id.Equals(existing.Value.Id));
             _nodes[index] = existing.Value;
         }
     }
-    
+
     public override string ToString()
     {
         return new string(_nodes.Where(n => !n.IsDeleted).Select(n => n.Value).ToArray());
     }
-    
+
     private static int[] GeneratePath(int[]? leftPath, int[]? rightPath)
     {
         // Case 1: Inserting at the very beginning of an empty or start of document
