@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -18,7 +18,7 @@
     </ItemGroup>
 
     <PropertyGroup>
-        <FrontendRoot>..\client\</FrontendRoot>
+        <FrontendRoot>..\Client\</FrontendRoot>
 
         <!-- Auto-detect package manager based on lockfiles -->
         <NodePackageManager Condition="Exists('$(FrontendRoot)bun.lockb')">bun</NodePackageManager>
