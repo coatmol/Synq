@@ -14,16 +14,16 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
-            archive_name: Synq-windows-x64.zip
+            archive_suffix: windows-x64.zip
           - os: ubuntu-latest
             rid: linux-x64
-            archive_name: Synq-linux-x64.tar.gz
+            archive_suffix: linux-x64.tar.gz
           - os: macos-latest
             rid: osx-x64
-            archive_name: Synq-macos-x64.zip
+            archive_suffix: macos-x64.zip
           - os: macos-latest
             rid: osx-arm64
-            archive_name: Synq-macos-arm64.zip
+            archive_suffix: macos-arm64.zip
 
     steps:
       - name: Checkout code
@@ -45,25 +45,25 @@ jobs:
 
       - name: Archive Build (Windows)
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path publish\* -DestinationPath ${{ matrix.archive_name }}
+        run: Compress-Archive -Path publish\* -DestinationPath Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
 
       - name: Archive Build (macOS)
         if: runner.os == 'macOS'
         run: |
           cd publish
-          zip -r ../${{ matrix.archive_name }} ./*
+          zip -r ../Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }} ./*
 
       - name: Archive Build (Linux)
         if: runner.os == 'Linux'
         run: |
           cd publish
-          tar -czvf ../${{ matrix.archive_name }} ./*
+          tar -czvf ../Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }} ./*
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.archive_name }}
-          path: ${{ matrix.archive_name }}
+          name: Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
+          path: Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
 
   release:
     name: Create Release
