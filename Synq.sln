@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Host", "src\Host\Host.cspro
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Desktop", "src\Desktop\Desktop.csproj", "{2450E973-CD7A-4FE1-A572-14BAED2154CB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "src\Tests\Tests.csproj", "{AAECB58F-F916-4EFB-9DB7-E4112220C2B5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,6 +20,10 @@ Global
 		{2450E973-CD7A-4FE1-A572-14BAED2154CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2450E973-CD7A-4FE1-A572-14BAED2154CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2450E973-CD7A-4FE1-A572-14BAED2154CB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AAECB58F-F916-4EFB-9DB7-E4112220C2B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AAECB58F-F916-4EFB-9DB7-E4112220C2B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AAECB58F-F916-4EFB-9DB7-E4112220C2B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AAECB58F-F916-4EFB-9DB7-E4112220C2B5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 	EndGlobalSection

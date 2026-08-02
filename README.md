@@ -6,6 +6,8 @@
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)
 ![React](https://img.shields.io/badge/React-19.0-61DAFB.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-7.0-3178C6.svg)
+[![CI](https://github.com/coatmol/Synq/actions/workflows/ci.yml/badge.svg)](https://github.com/coatmol/Synq/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/coatmol/Synq/actions/workflows/codeql.yml/badge.svg)](https://github.com/coatmol/Synq/actions/workflows/codeql.yml)
 
 **Synq** is a zero-trust, local-first application built to demonstrate state synchronization over decentralized peer-to-peer networks. Instead of relying on a centralized database or cloud backend to resolve concurrent edits, Synq implements a custom Conflict-Free Replicated Data Type (CRDT) engine in C#. Nodes discover each other automatically on local networks, establish direct peer-to-peer socket connections, and merge state changes deterministically without ever exposing data to a cloud provider.
 
