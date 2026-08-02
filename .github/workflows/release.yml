@@ -9,6 +9,8 @@ jobs:
   build:
     name: Build for ${{ matrix.rid }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -37,7 +39,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Publish App
         # Building as self-contained so users don't need to install the .NET runtime
@@ -66,7 +68,7 @@ jobs:
           path: ${{ matrix.archive_name }}
 
       - name: Release to GitHub
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.archive_name }}
           generate_release_notes: true
