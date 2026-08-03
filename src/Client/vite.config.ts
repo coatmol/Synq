@@ -9,4 +9,9 @@ export default defineConfig({
     react(),
   ],
   base: './',
+  server: {
+    watch: {
+      ignored: ['**/*.md']
+    }
+  }
 })

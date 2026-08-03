@@ -29,7 +29,7 @@ internal class Program
                 p => p.WithOrigins("http://127.0.0.1:5173", "http://localhost:5173").AllowAnyHeader().AllowAnyMethod()
                     .AllowCredentials());
         });
-        builder.Services.AddSignalR();
+        builder.Services.AddSignalR(options => { options.MaximumReceiveMessageSize = null; });
 
         var app = builder.Build();
 

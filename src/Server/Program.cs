@@ -7,7 +7,7 @@ builder.Services.AddSingleton<WorkspaceState>();
 builder.Services.AddSingleton<DocumentManager>();
 builder.Services.AddSingleton<SyncManager>();
 builder.Services.AddSingleton<LanDiscoveryService>();
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options => { options.MaximumReceiveMessageSize = null; });
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());

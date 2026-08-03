@@ -41,14 +41,40 @@ public class TextSequence
 
     public List<CharNode> LocalInsert(int index, string value)
     {
-        var newNodes = new List<CharNode>();
-        foreach (var c in value)
+        lock (_lock)
         {
-            newNodes.Add(LocalInsert(index, c));
-            index++;
-        }
+            var newNodes = new List<CharNode>(value.Length);
+            var activeNodes = _nodes.Where(n => !n.IsDeleted).ToList();
 
-        return newNodes;
+            for (var i = 0; i < value.Length; i++)
+            {
+                var c = value[i];
+                var currentIndex = index + i;
+
+                CharNode? leftNode = currentIndex > 0 && currentIndex <= activeNodes.Count
+                    ? activeNodes[currentIndex - 1]
+                    : null;
+
+                CharNode? rightNode = currentIndex < activeNodes.Count
+                    ? activeNodes[currentIndex]
+                    : null;
+
+                var newPath = GeneratePath(leftNode?.Id.Path, rightNode?.Id.Path);
+
+                var newId = new PositionIdentifier(newPath, _peerId, _nextId++);
+                var newNode = new CharNode(newId, c);
+
+                var insertIndex =
+                    _nodes.BinarySearch(newNode, Comparer<CharNode>.Create((a, b) => a.Id.CompareTo(b.Id)));
+                if (insertIndex < 0) insertIndex = ~insertIndex;
+
+                _nodes.Insert(insertIndex, newNode);
+                activeNodes.Insert(currentIndex, newNode);
+                newNodes.Add(newNode);
+            }
+
+            return newNodes;
+        }
     }
 
     public void OverwriteFromContent(string content)
@@ -71,34 +97,47 @@ public class TextSequence
             var activeNode = activeNodes[index];
             activeNode.IsDeleted = true;
 
-            var nodeIndex = _nodes.FindIndex(n => n.Id.Equals(activeNode.Id));
-            _nodes[nodeIndex] = activeNode;
+            var nodeIndex = _nodes.BinarySearch(activeNode, Comparer<CharNode>.Create((a, b) => a.Id.CompareTo(b.Id)));
+            if (nodeIndex >= 0) _nodes[nodeIndex] = activeNode;
             return activeNode;
         }
     }
 
     public List<CharNode> LocalDelete(int index, int length)
     {
-        var deletedNodes = new List<CharNode>();
-        for (var i = length - 1; i >= 0; i--)
+        lock (_lock)
         {
-            var deleted = LocalDelete(index + i);
-            if (deleted != null) deletedNodes.Add(deleted.Value);
-        }
+            var deletedNodes = new List<CharNode>();
+            var activeNodes = _nodes.Where(n => !n.IsDeleted).ToList();
 
-        return deletedNodes;
+            for (var i = length - 1; i >= 0; i--)
+            {
+                var delIndex = index + i;
+                if (delIndex < 0 || delIndex >= activeNodes.Count) continue;
+
+                var activeNode = activeNodes[delIndex];
+                activeNode.IsDeleted = true;
+
+                var nodeIndex =
+                    _nodes.BinarySearch(activeNode, Comparer<CharNode>.Create((a, b) => a.Id.CompareTo(b.Id)));
+                if (nodeIndex >= 0) _nodes[nodeIndex] = activeNode;
+
+                deletedNodes.Add(activeNode);
+            }
+
+            return deletedNodes;
+        }
     }
 
     public void RemoteMerge(CharNode incomingNode)
     {
         lock (_lock)
         {
-            var existingIndex = _nodes.FindIndex(n => n.Id.Equals(incomingNode.Id));
+            var existingIndex =
+                _nodes.BinarySearch(incomingNode, Comparer<CharNode>.Create((a, b) => a.Id.CompareTo(b.Id)));
             if (existingIndex < 0)
             {
-                var index = _nodes.BinarySearch(incomingNode,
-                    Comparer<CharNode>.Create((a, b) => a.Id.CompareTo(b.Id)));
-                if (index < 0) index = ~index;
+                var index = ~existingIndex;
                 _nodes.Insert(index, incomingNode);
             }
             else if (incomingNode.IsDeleted)
@@ -120,55 +159,81 @@ public class TextSequence
 
     private static int[] GeneratePath(int[]? leftPath, int[]? rightPath)
     {
-        // Case 1: Inserting at the very beginning of an empty or start of document
-        if (leftPath == null && rightPath == null) return [5]; // Default middle starting point
+        if (leftPath == null && rightPath == null) return [10000];
 
-        // Case 2: Inserting at the very beginning (no left neighbor)
         if (leftPath == null)
         {
-            // Take the first digit of the right path and step down
             var first = rightPath![0];
-            return first > 0 ? [first - 1] : [0, 5];
+            return first > 1 ? [first - 1] : [0, 10000];
         }
 
-        // Case 3: Inserting at the very end (no right neighbor)
         if (rightPath == null)
         {
-            // Increment the last digit or expand the path
             var newPath = new int[leftPath.Length];
             Array.Copy(leftPath, newPath, leftPath.Length);
-            newPath[^1] += 5; // Step forward
+            // check overflow
+            if (newPath[^1] < int.MaxValue - 10000)
+            {
+                newPath[^1] += 10000;
+            }
+            else
+            {
+                var extended = new int[leftPath.Length + 1];
+                Array.Copy(leftPath, extended, leftPath.Length);
+                extended[^1] = 10000;
+                return extended;
+            }
+
             return newPath;
         }
 
-        // Case 4: Inserting between two existing nodes
-        // Find where the paths diverge and interpolate a middle value
+        // Inserting between leftPath and rightPath
         var maxLen = Math.Max(leftPath.Length, rightPath.Length);
         for (var i = 0; i < maxLen; i++)
         {
             var lVal = i < leftPath.Length ? leftPath[i] : 0;
             var rVal = i < rightPath.Length ? rightPath[i] : 0;
 
-            // If there's a gap between digits (e.g., left is [1, 2] and right is [1, 4])
+            if (lVal == rVal) continue;
+
+            // They differ at index i.
             if (rVal - lVal > 1)
             {
                 var newPath = new int[i + 1];
-                Array.Copy(leftPath, newPath, i);
-                newPath[i] = lVal + 1;
+                Array.Copy(leftPath, newPath, Math.Min(leftPath.Length, i));
+                newPath[i] = lVal + (rVal - lVal) / 2;
                 return newPath;
             }
 
-            // If they are equal at this depth, keep matching down the tree
-            if (lVal == rVal)
+            // rVal - lVal == 1
+            if (i == leftPath.Length - 1)
             {
+                var extended = new int[leftPath.Length + 1];
+                Array.Copy(leftPath, extended, leftPath.Length);
+                extended[^1] = 10000;
+                return extended;
+            }
+
+            var deepPath = new int[leftPath.Length];
+            Array.Copy(leftPath, deepPath, leftPath.Length);
+
+            if (deepPath[^1] < int.MaxValue - 10000)
+            {
+                deepPath[^1] += 10000;
+                return deepPath;
+            }
+
+            {
+                var extended = new int[leftPath.Length + 1];
+                Array.Copy(leftPath, extended, leftPath.Length);
+                extended[^1] = 10000;
+                return extended;
             }
         }
 
-        // Fallback: If left and right share an identical path prefix, 
-        // append a new depth level with a middle value (e.g., 5)
-        var extendedPath = new int[leftPath.Length + 1];
-        Array.Copy(leftPath, extendedPath, leftPath.Length);
-        extendedPath[^1] = 5;
-        return extendedPath;
+        var fallback = new int[leftPath.Length + 1];
+        Array.Copy(leftPath, fallback, leftPath.Length);
+        fallback[^1] = 10000;
+        return fallback;
     }
 }

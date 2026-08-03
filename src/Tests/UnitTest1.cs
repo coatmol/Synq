@@ -10,6 +10,19 @@ public class Tests
     }
 
     [Test]
+    public void TestLargePaste()
+    {
+        var seq = new TextSequence("peer1");
+        seq.LocalInsert(0, "Original Text");
+
+        var newText = new string('A', 2000);
+        seq.LocalDelete(0, 13);
+        seq.LocalInsert(0, newText);
+
+        Assert.AreEqual(2000, seq.ToString().Length);
+    }
+
+    [Test]
     public void Test1()
     {
         var sequence = new TextSequence("Peer A");

@@ -1,60 +1,31 @@
 // @ts-nocheck
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
-import ReactMarkdown from "react-markdown";
 import { Spinner } from "@heroui/react";
 import { useBufferedInput } from "../hooks/useBufferedInput";
 import { useDocumentStore } from "../hooks/useDocumentHub";
 import DiffMatchPatch from "diff-match-patch";
+import { AtomicCodeMirrorEditor } from "@atomic-editor/editor";
+import type { AtomicCodeMirrorEditorHandle } from "@atomic-editor/editor";
+import { ATOMIC_CODE_LANGUAGES } from "@atomic-editor/editor/code-languages";
+import { ViewPlugin, EditorView } from "@codemirror/view";
+import { Annotation } from "@codemirror/state";
+
+export const remoteUpdateAnnotation = Annotation.define<boolean>();
 
 export function EditorWorkspace() {
-  const { text: remoteText, setDocumentStats, isLoading } = useDocumentStore();
-  const { localText, setLocalText, queueInsert, queueDelete } = useBufferedInput();
+  const { text: remoteText, setDocumentStats, isLoading, activeFile } = useDocumentStore();
+  const { localText, setLocalText, remoteUpdateText, queueInsert, queueDelete } = useBufferedInput();
   
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const dmp = new DiffMatchPatch();
-
-  // Handle remote updates via DMP to avoid losing cursor
-  useEffect(() => {
-    if (remoteText !== localText && textareaRef.current) {
-      const textarea = textareaRef.current;
-      const cursor = textarea.selectionStart;
-      
-      const diffs = dmp.diff_main(localText, remoteText);
-      dmp.diff_cleanupSemantic(diffs);
-
-      let newCursor = cursor;
-      let currentIndex = 0;
-
-      for (const [op, text] of diffs) {
-        if (currentIndex > cursor) break;
-
-        if (op === -1) { // Delete
-          if (currentIndex + text.length <= cursor) {
-            newCursor -= text.length;
-          } else {
-            newCursor -= (cursor - currentIndex);
-          }
-        } else if (op === 1) { // Insert
-          if (currentIndex <= cursor) {
-            newCursor += text.length;
-          }
-          currentIndex += text.length;
-        } else { // Equal
-          currentIndex += text.length;
-        }
-      }
-
-      setLocalText(remoteText);
-
-      // Restore cursor after React updates the DOM
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.setSelectionRange(newCursor, newCursor);
-        }
-      }, 0);
-    }
-  }, [remoteText]);
+  const textareaRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
+  
+  // Capture the text at mount time for this file. useMemo runs synchronously
+  // during render (not after, like useEffect), so the wrapper gets the correct
+  // content on its very first mount. The wrapper is uncontrolled — it only reads
+  // markdownSource once — so subsequent changes to localText are irrelevant here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialMarkdown = useMemo(() => localText, [activeFile]);
 
   const updateStats = useCallback((text: string, cursorIndex: number) => {
     const chars = text.length;
@@ -67,39 +38,101 @@ export function EditorWorkspace() {
     setDocumentStats({ words, chars, line, col });
   }, [setDocumentStats]);
 
-  const handleSelect = useCallback(() => {
-    if (textareaRef.current) {
-      updateStats(localText, textareaRef.current.selectionStart);
-    }
-  }, [localText, updateStats]);
+  const captureViewExtension = useMemo(() => {
+    return ViewPlugin.define((view) => {
+      setEditorView(view);
+      return {
+        update(update) {
+           if (update.selectionSet || update.docChanged) {
+             updateStats(view.state.doc.toString(), view.state.selection.main.head);
+           }
+           
+           if (update.docChanged) {
+             const isRemote = update.transactions.some(tr => tr.annotation(remoteUpdateAnnotation));
+             if (!isRemote) {
+               const changes: { type: 'insert' | 'delete', index: number, text?: string, length?: number }[] = [];
+               
+               update.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+                 if (inserted.length > 0) {
+                   changes.push({ type: 'insert', index: fromA, text: inserted.toString() });
+                 }
+                 if (toA > fromA) {
+                   changes.push({ type: 'delete', index: fromA, length: toA - fromA });
+                 }
+               });
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newVal = e.target.value;
+               // Process changes in reverse so string indices don't shift for earlier changes
+               for (let i = changes.length - 1; i >= 0; i--) {
+                 const c = changes[i];
+                 if (c.type === 'delete') queueDelete(c.index, c.length!);
+                 if (c.type === 'insert') queueInsert(c.index, c.text!);
+               }
+             }
+           }
+        }
+      };
+    });
+  }, [updateStats, queueDelete, queueInsert]);
+
+  const lastAppliedRemoteVersion = useRef(0);
+
+  const dmp = useMemo(() => new DiffMatchPatch(), []);
+
+  // Handle remote updates via DMP to avoid losing cursor
+  useEffect(() => {
+    if (!editorView || !remoteUpdateText) return;
     
-    const diffs = dmp.diff_main(localText, newVal);
-    // Do not run cleanupSemantic, we need the exact operational diffs
-    // to map precisely to our CRDT indices.
+    if (remoteUpdateText.version !== lastAppliedRemoteVersion.current) {
+      lastAppliedRemoteVersion.current = remoteUpdateText.version;
+      
+      const currentCodeMirrorText = editorView.state.doc.toString();
+      if (remoteUpdateText.text !== currentCodeMirrorText) {
+        
+        const diffs = dmp.diff_main(currentCodeMirrorText, remoteUpdateText.text);
+        dmp.diff_cleanupSemantic(diffs);
 
-    let currentIndex = 0;
-    for (const [op, text] of diffs) {
-      if (op === 0) { // Equal
-        currentIndex += text.length;
-      } else if (op === -1) { // Delete
-        queueDelete(currentIndex, text.length);
-      } else if (op === 1) { // Insert
-        queueInsert(currentIndex, text);
-        currentIndex += text.length;
+        let currentIndex = 0;
+        const changes = [];
+
+        for (const [op, text] of diffs) {
+          if (op === -1) { // Delete
+            changes.push({ from: currentIndex, to: currentIndex + text.length });
+            currentIndex += text.length;
+          } else if (op === 1) { // Insert
+            changes.push({ from: currentIndex, insert: text });
+          } else { // Equal
+            currentIndex += text.length;
+          }
+        }
+
+        // Apply changes sequentially to CodeMirror
+        editorView.dispatch({ 
+          changes,
+          annotations: [remoteUpdateAnnotation.of(true)]
+        });
       }
     }
+  }, [remoteUpdateText, editorView, dmp]);
 
-    setLocalText(newVal);
-    updateStats(newVal, e.target.selectionStart);
-  }, [localText, queueInsert, queueDelete, setLocalText, updateStats, dmp]);
+  const handleChange = useCallback((newVal: string) => {
+    // We intentionally DO NOT update any React state here.
+    // CodeMirror is fully uncontrolled and handles its own state.
+    // Our ViewPlugin captures all edits natively.
+  }, []);
 
   // Initial stats calculation
   useEffect(() => {
-    updateStats(localText, textareaRef.current?.selectionStart || 0);
-  }, []);
+    if (editorView) {
+      updateStats(localText, editorView.state.selection.main.head);
+    } else {
+      updateStats(localText, 0);
+    }
+  }, [editorView]);
+
+  // Memoize all props passed to the editor to prevent the React wrapper
+  // from re-configuring or re-mounting the editor on every keystroke render
+  const editorExtensions = useMemo(() => [captureViewExtension], [captureViewExtension]);
+  const handleLinkClick = useCallback((url: string) => window.open(url, "_blank"), []);
 
   return (
     <div className="flex flex-col h-full w-full bg-zinc-950">
@@ -111,32 +144,20 @@ export function EditorWorkspace() {
       ) : (
         <PanelGroup direction="horizontal" className="flex-1 w-full overflow-hidden relative bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-zinc-900/40 via-zinc-950 to-zinc-950">
           
-          {/* Raw Markdown Input */}
-        <Panel defaultSize={50} minSize={20} className="relative group flex flex-col h-full">
+          {/* Markdown editor & live preview */}
+        <Panel defaultSize={100} minSize={20} className="relative group flex flex-col h-full">
           <div className="absolute top-4 right-6 text-[10px] font-bold text-zinc-700 uppercase tracking-widest pointer-events-none transition-colors z-10">Markdown</div>
-          <div className="flex-1 overflow-hidden custom-scrollbar bg-transparent p-6">
-            <textarea
-              ref={textareaRef}
-              value={localText}
-              onChange={handleChange}
-              onSelect={handleSelect}
-              spellCheck={false}
-              className="w-full h-full bg-transparent text-zinc-300 outline-none resize-none font-mono text-[13px] leading-loose custom-scrollbar"
-              placeholder="Start typing..."
+          <div className="flex-1 overflow-y-auto custom-scrollbar bg-transparent p-6">
+            <AtomicCodeMirrorEditor
+                editorHandleRef={textareaRef}
+                documentId={activeFile ?? undefined}
+                markdownSource={initialMarkdown}
+                onMarkdownChange={handleChange}
+                codeLanguages={ATOMIC_CODE_LANGUAGES}
+                extensions={editorExtensions}
+                onLinkClick={handleLinkClick}
+                className="w-full h-full"
             />
-          </div>
-        </Panel>
-
-        {/* Resizer */}
-        <PanelResizeHandle className="w-1.5 bg-zinc-900/50 hover:bg-emerald-500/50 transition-colors cursor-col-resize flex items-center justify-center relative">
-          <div className="w-0.5 h-8 bg-zinc-700 rounded-full pointer-events-none"></div>
-        </PanelResizeHandle>
-        
-        {/* Live Preview */}
-        <Panel defaultSize={50} minSize={20} className="relative custom-scrollbar bg-zinc-950/50 overflow-y-auto">
-          <div className="absolute top-4 right-4 text-[10px] font-bold text-zinc-700 uppercase tracking-widest pointer-events-none">Preview</div>
-          <div className="p-8 prose prose-invert prose-zinc max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-h1:text-zinc-50 prose-p:leading-relaxed hover:prose-a:text-emerald-300 prose-code:bg-emerald-950/30 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:border prose-code:border-emerald-800/30">
-            <ReactMarkdown>{localText}</ReactMarkdown>
           </div>
         </Panel>
       </PanelGroup>

@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback } from "react";
 import * as signalR from "@microsoft/signalr";
 import { create } from "zustand";
 import { BASE_URL } from "../api";
@@ -20,13 +20,21 @@ interface DocumentState {
   setDocumentStats: (stats: { words: number; chars: number; line: number; col: number }) => void;
 }
 
+// Per-file document cache so tab switching is instant for already-loaded files.
+// Declared before the store so setActiveFile can reference it atomically.
+const documentCache = new Map<string, string>();
+
 export const useDocumentStore = create<DocumentState>((set) => ({
   activeFile: null,
   setActiveFile: (file) => set((state) => {
+    // Atomically set both activeFile and text from cache in one update,
+    // so the editor remounts with the correct content immediately.
+    const cached = file ? documentCache.get(file) : undefined;
+    const textUpdate = cached !== undefined ? { text: cached } : {};
     if (file && !state.openFiles.includes(file)) {
-      return { activeFile: file, openFiles: [...state.openFiles, file] };
+      return { activeFile: file, openFiles: [...state.openFiles, file], ...textUpdate };
     }
-    return { activeFile: file };
+    return { activeFile: file, ...textUpdate };
   }),
   openFiles: [],
   setOpenFiles: (updater) => set((state) => ({ openFiles: typeof updater === 'function' ? updater(state.openFiles) : updater })),
@@ -42,144 +50,171 @@ export const useDocumentStore = create<DocumentState>((set) => ({
   setDocumentStats: (stats) => set({ documentStats: stats }),
 }));
 
-export function useDocumentHub() {
-  const { setText, setIsConnected } = useDocumentStore();
-  const connectionRef = useRef<signalR.HubConnection | null>(null);
+// ─── Singleton SignalR connection ────────────────────────────────────
+// Only ONE HubConnection is ever created for the entire app lifetime.
+// This is critical: if multiple connections exist, the server's
+// Clients.Others broadcast treats the second connection as a separate
+// client, causing an echo loop that destroys the cursor during typing.
+let singletonConnection: signalR.HubConnection | null = null;
+let connectionStarted = false;
 
-  useEffect(() => {
-    const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl(`${BASE_URL}/hub`)
-      .withAutomaticReconnect()
-      .build();
+function getOrCreateConnection(): signalR.HubConnection {
+  if (singletonConnection) return singletonConnection;
 
-    connectionRef.current = newConnection;
+  const newConnection = new signalR.HubConnectionBuilder()
+    .withUrl(`${BASE_URL}/hub`)
+    .withAutomaticReconnect()
+    .build();
 
-    newConnection.on("DocumentUpdated", (filename: string, newText: string) => {
-      const currentActiveFile = useDocumentStore.getState().activeFile;
-      if (filename === currentActiveFile) {
-        setText(newText);
-      }
-    });
+  newConnection.on("DocumentUpdated", (filename: string, newText: string) => {
+    documentCache.set(filename, newText);
+    const currentActiveFile = useDocumentStore.getState().activeFile;
+    if (filename === currentActiveFile) {
+      useDocumentStore.getState().setText(newText);
+    }
+  });
 
-    newConnection.on("ItemRenamed", (oldPath: string, newPath: string) => {
-      const { activeFile, openFiles, deletedOpenFiles } = useDocumentStore.getState();
-      const updatePath = (p: string) => {
-        if (p === oldPath) return newPath;
-        if (p.startsWith(oldPath + '/')) return newPath + p.substring(oldPath.length);
-        return p;
-      };
-      const newOpen = openFiles.map(updatePath);
-      useDocumentStore.setState({ 
-        openFiles: newOpen,
-        deletedOpenFiles: deletedOpenFiles.map(updatePath)
-      });
-      if (activeFile) {
-        const updatedActive = updatePath(activeFile);
-        if (updatedActive !== activeFile) useDocumentStore.setState({ activeFile: updatedActive });
-      }
-      window.dispatchEvent(new CustomEvent("refreshFileTree"));
-    });
-
-    newConnection.on("ItemMoved", (oldPath: string, newPath: string) => {
-      const { activeFile, openFiles, deletedOpenFiles } = useDocumentStore.getState();
-      const updatePath = (p: string) => {
-        if (p === oldPath) return newPath;
-        if (p.startsWith(oldPath + '/')) return newPath + p.substring(oldPath.length);
-        return p;
-      };
-      const newOpen = openFiles.map(updatePath);
-      useDocumentStore.setState({ 
-        openFiles: newOpen,
-        deletedOpenFiles: deletedOpenFiles.map(updatePath)
-      });
-      if (activeFile) {
-        const updatedActive = updatePath(activeFile);
-        if (updatedActive !== activeFile) useDocumentStore.setState({ activeFile: updatedActive });
-      }
-      window.dispatchEvent(new CustomEvent("refreshFileTree"));
-    });
-
-    newConnection.on("ItemDeleted", (path: string) => {
-      const { openFiles, deletedOpenFiles } = useDocumentStore.getState();
-      const isFileAffected = (p: string) => p === path || p.startsWith(path + '/');
-      const affectedFiles = openFiles.filter(isFileAffected);
-      if (affectedFiles.length > 0) {
-        useDocumentStore.setState({
-          deletedOpenFiles: [...new Set([...deletedOpenFiles, ...affectedFiles])]
-        });
-      }
-      window.dispatchEvent(new CustomEvent("refreshFileTree"));
-    });
-
-    newConnection.on("FolderCreated", () => {
-      window.dispatchEvent(new CustomEvent("refreshFileTree"));
-    });
-
-    newConnection.on("FileCreated", (path: string) => {
-      const { deletedOpenFiles } = useDocumentStore.getState();
-      if (deletedOpenFiles.includes(path)) {
-        useDocumentStore.setState({
-          deletedOpenFiles: deletedOpenFiles.filter(p => p !== path)
-        });
-      }
-      window.dispatchEvent(new CustomEvent("refreshFileTree"));
-    });
-
-    newConnection.onreconnecting(() => {
-      setIsConnected(false);
-    });
-
-    newConnection.onreconnected(() => {
-      setIsConnected(true);
-      fetchDocument();
-    });
-
-    const startConnection = async () => {
-      try {
-        await newConnection.start();
-        setIsConnected(true);
-        fetchDocument();
-      } catch (err) {
-        console.error("SignalR Connection Error: ", err);
-        setIsConnected(false);
-        setTimeout(startConnection, 5000);
-      }
+  newConnection.on("ItemRenamed", (oldPath: string, newPath: string) => {
+    const { activeFile, openFiles, deletedOpenFiles } = useDocumentStore.getState();
+    const updatePath = (p: string) => {
+      if (p === oldPath) return newPath;
+      if (p.startsWith(oldPath + '/')) return newPath + p.substring(oldPath.length);
+      return p;
     };
+    const newOpen = openFiles.map(updatePath);
+    useDocumentStore.setState({ 
+      openFiles: newOpen,
+      deletedOpenFiles: deletedOpenFiles.map(updatePath)
+    });
+    if (activeFile) {
+      const updatedActive = updatePath(activeFile);
+      if (updatedActive !== activeFile) useDocumentStore.setState({ activeFile: updatedActive });
+    }
+    window.dispatchEvent(new CustomEvent("refreshFileTree"));
+  });
 
-    startConnection();
-
-    return () => {
-      newConnection.stop();
-      connectionRef.current = null;
+  newConnection.on("ItemMoved", (oldPath: string, newPath: string) => {
+    const { activeFile, openFiles, deletedOpenFiles } = useDocumentStore.getState();
+    const updatePath = (p: string) => {
+      if (p === oldPath) return newPath;
+      if (p.startsWith(oldPath + '/')) return newPath + p.substring(oldPath.length);
+      return p;
     };
-  }, [setText, setIsConnected]);
+    const newOpen = openFiles.map(updatePath);
+    useDocumentStore.setState({ 
+      openFiles: newOpen,
+      deletedOpenFiles: deletedOpenFiles.map(updatePath)
+    });
+    if (activeFile) {
+      const updatedActive = updatePath(activeFile);
+      if (updatedActive !== activeFile) useDocumentStore.setState({ activeFile: updatedActive });
+    }
+    window.dispatchEvent(new CustomEvent("refreshFileTree"));
+  });
 
-  const fetchDocument = async () => {
-    const { activeFile, setIsLoading } = useDocumentStore.getState();
-    if (!activeFile) return;
-    
+  newConnection.on("ItemDeleted", (path: string) => {
+    const { openFiles, deletedOpenFiles } = useDocumentStore.getState();
+    const isFileAffected = (p: string) => p === path || p.startsWith(path + '/');
+    const affectedFiles = openFiles.filter(isFileAffected);
+    if (affectedFiles.length > 0) {
+      useDocumentStore.setState({
+        deletedOpenFiles: [...new Set([...deletedOpenFiles, ...affectedFiles])]
+      });
+    }
+    window.dispatchEvent(new CustomEvent("refreshFileTree"));
+  });
+
+  newConnection.on("FolderCreated", () => {
+    window.dispatchEvent(new CustomEvent("refreshFileTree"));
+  });
+
+  newConnection.on("FileCreated", (path: string) => {
+    const { deletedOpenFiles } = useDocumentStore.getState();
+    if (deletedOpenFiles.includes(path)) {
+      useDocumentStore.setState({
+        deletedOpenFiles: deletedOpenFiles.filter(p => p !== path)
+      });
+    }
+    window.dispatchEvent(new CustomEvent("refreshFileTree"));
+  });
+
+  newConnection.onreconnecting(() => {
+    useDocumentStore.getState().setIsConnected(false);
+  });
+
+  newConnection.onreconnected(() => {
+    useDocumentStore.getState().setIsConnected(true);
+    fetchDocumentImpl();
+  });
+
+  singletonConnection = newConnection;
+  return newConnection;
+}
+
+async function startConnection() {
+  if (connectionStarted) return;
+  connectionStarted = true;
+
+  const connection = getOrCreateConnection();
+  try {
+    await connection.start();
+    useDocumentStore.getState().setIsConnected(true);
+    fetchDocumentImpl();
+  } catch (err) {
+    console.error("SignalR Connection Error: ", err);
+    useDocumentStore.getState().setIsConnected(false);
+    connectionStarted = false;
+    setTimeout(startConnection, 5000);
+  }
+}
+
+async function fetchDocumentImpl() {
+  const { activeFile, setIsLoading, setText } = useDocumentStore.getState();
+  if (!activeFile) return;
+  
+  // If we have a cached version, use it instantly (no spinner)
+  const cached = documentCache.get(activeFile);
+  if (cached !== undefined) {
+    setText(cached);
+  } else {
+    // Only show loading spinner for files we've never seen
     setIsLoading(true);
-    try {
-      const response = await fetch(`${BASE_URL}/api/document?filename=${encodeURIComponent(activeFile)}`);
-      if (response.ok) {
-        const data = await response.json();
+  }
+
+  try {
+    const response = await fetch(`${BASE_URL}/api/document?filename=${encodeURIComponent(activeFile)}`);
+    if (response.ok) {
+      const data = await response.json();
+      documentCache.set(activeFile, data.text);
+      // Only update if this file is still the active one
+      if (useDocumentStore.getState().activeFile === activeFile) {
         setText(data.text);
       }
-    } catch (err) {
-      console.error("Failed to fetch initial document state", err);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (err) {
+    console.error("Failed to fetch initial document state", err);
+  } finally {
+    setIsLoading(false);
+  }
+}
+
+// ─── Hook ────────────────────────────────────────────────────────────
+// Safe to call from multiple components — always reuses the singleton.
+export function useDocumentHub() {
+  useEffect(() => {
+    startConnection();
+    // No cleanup — the singleton lives for the app's lifetime
+  }, []);
 
   const insertText = useCallback(async (index: number, value: string) => {
     const activeFile = useDocumentStore.getState().activeFile;
     if (!activeFile) return;
-    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
+    const conn = singletonConnection;
+    if (conn?.state === signalR.HubConnectionState.Connected) {
       if (value.length === 1) {
-        await connectionRef.current.invoke("InsertCharacter", activeFile, index, value);
+        await conn.invoke("InsertCharacter", activeFile, index, value);
       } else {
-        await connectionRef.current.invoke("InsertText", activeFile, index, value);
+        await conn.invoke("InsertText", activeFile, index, value);
       }
     }
   }, []);
@@ -187,14 +222,15 @@ export function useDocumentHub() {
   const deleteText = useCallback(async (index: number, length: number = 1) => {
     const activeFile = useDocumentStore.getState().activeFile;
     if (!activeFile) return;
-    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
+    const conn = singletonConnection;
+    if (conn?.state === signalR.HubConnectionState.Connected) {
       if (length === 1) {
-        await connectionRef.current.invoke("DeleteCharacter", activeFile, index);
+        await conn.invoke("DeleteCharacter", activeFile, index);
       } else {
-        await connectionRef.current.invoke("DeleteText", activeFile, index, length);
+        await conn.invoke("DeleteText", activeFile, index, length);
       }
     }
   }, []);
 
-  return { insertText, deleteText, fetchDocument };
+  return { insertText, deleteText, fetchDocument: fetchDocumentImpl };
 }

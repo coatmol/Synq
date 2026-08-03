@@ -25,7 +25,7 @@ public class DocumentManager
                 var path = PathUtils.GetSafePath(_state.CurrentFolder, key);
                 if (path != null && File.Exists(path))
                 {
-                    var content = File.ReadAllText(path);
+                    var content = File.ReadAllText(path).Replace("\r\n", "\n");
                     if (!string.IsNullOrEmpty(content)) doc.LocalInsert(0, content);
                 }
             }
@@ -38,10 +38,15 @@ public class DocumentManager
     {
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return;
         if (_documents.TryGetValue(filename, out var doc))
-        {
-            var path = PathUtils.GetSafePath(_state.CurrentFolder, filename);
-            if (path != null) File.WriteAllText(path, doc.ToString());
-        }
+            try
+            {
+                var path = PathUtils.GetSafePath(_state.CurrentFolder, filename);
+                if (path != null) File.WriteAllText(path, doc.ToString());
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving to disk: {ex.Message}");
+            }
     }
 
     public void LoadAllFromDisk()
@@ -67,7 +72,8 @@ public class DocumentManager
             var path = Path.Combine(_state.CurrentFolder, kvp.Key);
             File.WriteAllText(path, kvp.Value);
             var doc = new TextSequence(_peerId);
-            if (!string.IsNullOrEmpty(kvp.Value)) doc.LocalInsert(0, kvp.Value);
+            var content = kvp.Value.Replace("\r\n", "\n");
+            if (!string.IsNullOrEmpty(content)) doc.LocalInsert(0, content);
             _documents[kvp.Key] = doc;
         }
     }
