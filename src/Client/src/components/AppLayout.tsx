@@ -37,16 +37,13 @@ function Topbar() {
             </Dropdown.Trigger>
             <Dropdown.Popover className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-2xl v3 \'/min-w-50">
               <Dropdown.Menu aria-label="File Options" className="p-1">
-                <Dropdown.Item key="new" className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
+                <Dropdown.Item key="new" onPress={() => window.dispatchEvent(new Event('trigger-new-file'))} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
                   New Document
                 </Dropdown.Item>
                 <Dropdown.Item key="open" onPress={() => sendMessage("openFolder")} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
                   Open Folder...
                 </Dropdown.Item>
-                <Dropdown.Item key="save" className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
-                  Save
-                </Dropdown.Item>
-                <Dropdown.Item key="close" className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
+                <Dropdown.Item key="close" onPress={() => { sendMessage("closeFolder"); setTimeout(() => window.location.reload(), 100); }} className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
                   Close folder
                 </Dropdown.Item>
                 <Dropdown.Item key="quit" onPress={() => sendMessage("close")} className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
@@ -143,6 +140,12 @@ export function AppLayout({ children }: AppLayoutProps) {
                   <div 
                     key={file} 
                     onClick={() => setActiveFile(file)}
+                    onMouseUp={(e) => {
+                      if (e.button === 1) {
+                        e.preventDefault();
+                        closeFile(e, file);
+                      }
+                    }}
                     className={`group/tab flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-all duration-200 ease-out select-none
                       ${isActive 
                         ? 'bg-zinc-950 text-emerald-400 border-t-2 border-t-emerald-500 border-x border-x-zinc-800/60 rounded-t-lg relative -mb-[1px] shadow-[0_-4px_12px_rgba(16,185,129,0.03)] z-10' 

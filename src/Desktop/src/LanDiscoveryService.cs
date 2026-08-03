@@ -16,6 +16,7 @@ public class LanDiscoveryService : IDisposable
     private MulticastService? _mdns;
     private ServiceDiscovery? _serviceDiscovery;
     private ServiceProfile? _serviceProfile;
+    private bool _isAdvertising = false;
     public int Port { get; private set; }
 
     public LanDiscoveryService(DocumentManager manager, SyncManager syncManager, WorkspaceState workspaceState)
@@ -59,13 +60,13 @@ public class LanDiscoveryService : IDisposable
         };
 
         _mdns.Start();
-        _serviceDiscovery.Advertise(_serviceProfile);
 
         _pingTimer = new Timer(PingPeers, null, 5000, 5000);
     }
 
     private async void PingPeers(object? state)
     {
+        BroadcastQuery();
         var keys = _discoveredPeers.Keys.ToList();
         using var http = new HttpClient();
         http.Timeout = TimeSpan.FromSeconds(2);
@@ -94,18 +95,33 @@ public class LanDiscoveryService : IDisposable
     {
         if (_serviceProfile != null && _serviceDiscovery != null)
         {
-            _serviceDiscovery.Unadvertise(_serviceProfile);
+            if (_isAdvertising) _serviceDiscovery.Unadvertise(_serviceProfile);
             _serviceProfile = new ServiceProfile($"{newUsername}-{Port}", "_synq._tcp", (ushort)Port);
+            if (_isAdvertising) _serviceDiscovery.Advertise(_serviceProfile);
+        }
+    }
+
+    public void StartAdvertising()
+    {
+        if (!_isAdvertising && _serviceDiscovery != null && _serviceProfile != null)
+        {
             _serviceDiscovery.Advertise(_serviceProfile);
+            _isAdvertising = true;
+        }
+    }
+
+    public void StopAdvertising()
+    {
+        if (_isAdvertising && _serviceDiscovery != null && _serviceProfile != null)
+        {
+            _serviceDiscovery.Unadvertise(_serviceProfile);
+            _isAdvertising = false;
         }
     }
 
     public void Stop()
     {
-        if (_serviceProfile != null && _serviceDiscovery != null)
-        {
-            _serviceDiscovery.Unadvertise(_serviceProfile);
-        }
+        StopAdvertising();
         _mdns?.Stop();
     }
 
@@ -142,6 +158,16 @@ public class LanDiscoveryService : IDisposable
 
     public HubConnection? PeerConnection { get; private set; }
 
+    public async Task DisconnectFromPeerAsync()
+    {
+        if (PeerConnection != null)
+        {
+            await PeerConnection.StopAsync();
+            await PeerConnection.DisposeAsync();
+            PeerConnection = null;
+        }
+    }
+
     public async Task<bool> ConnectToPeerAsync(string ip, int port, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext)
     {
         try
@@ -176,6 +202,51 @@ public class LanDiscoveryService : IDisposable
                         }
                         _manager.SaveToDisk(filename);
                         await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, seq.ToString());
+                    });
+                    
+                    PeerConnection.On<string, string>("ItemRenamed", async (oldPath, newPath) =>
+                    {
+                        var oldAbs = Path.Combine(_workspaceState.CurrentFolder, oldPath);
+                        var newAbs = Path.Combine(_workspaceState.CurrentFolder, newPath);
+                        if (File.Exists(oldAbs))
+                        {
+                            var dir = Path.GetDirectoryName(newAbs);
+                            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                            File.Move(oldAbs, newAbs);
+                        }
+                        else if (Directory.Exists(oldAbs))
+                        {
+                            Directory.Move(oldAbs, newAbs);
+                        }
+                        _syncManager.InitializeLocalFolder();
+                        await hubContext.Clients.All.SendAsync("ItemRenamed", oldPath, newPath);
+                    });
+
+                    PeerConnection.On<string>("ItemDeleted", async (path) =>
+                    {
+                        var filePath = Path.Combine(_workspaceState.CurrentFolder, path);
+                        if (File.Exists(filePath)) File.Delete(filePath);
+                        else if (Directory.Exists(filePath)) Directory.Delete(filePath, true);
+                        _syncManager.InitializeLocalFolder();
+                        await hubContext.Clients.All.SendAsync("ItemDeleted", path);
+                    });
+
+                    PeerConnection.On<string>("FileCreated", async (filename) =>
+                    {
+                        var filePath = Path.Combine(_workspaceState.CurrentFolder, filename);
+                        var dir = Path.GetDirectoryName(filePath);
+                        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                        if (!File.Exists(filePath)) await File.WriteAllTextAsync(filePath, "# " + Path.GetFileNameWithoutExtension(filename));
+                        _syncManager.InitializeLocalFolder();
+                        await hubContext.Clients.All.SendAsync("FileCreated", filename);
+                    });
+
+                    PeerConnection.On<string>("FolderCreated", async (path) =>
+                    {
+                        var dirPath = Path.Combine(_workspaceState.CurrentFolder, path);
+                        if (!Directory.Exists(dirPath)) Directory.CreateDirectory(dirPath);
+                        _syncManager.InitializeLocalFolder();
+                        await hubContext.Clients.All.SendAsync("FolderCreated", path);
                     });
                     
                     await PeerConnection.StartAsync();

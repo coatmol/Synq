@@ -80,4 +80,24 @@ public class DocumentHub : Hub
             } catch { }
         }
     }
+
+    public async Task ItemRenamed(string oldPath, string newPath)
+    {
+        await Clients.Others.SendAsync("ItemRenamed", oldPath, newPath);
+    }
+
+    public async Task ItemDeleted(string path)
+    {
+        await Clients.Others.SendAsync("ItemDeleted", path);
+    }
+
+    public async Task FileCreated(string filename)
+    {
+        await Clients.Others.SendAsync("FileCreated", filename);
+    }
+
+    public async Task FolderCreated(string path)
+    {
+        await Clients.Others.SendAsync("FolderCreated", path);
+    }
 }

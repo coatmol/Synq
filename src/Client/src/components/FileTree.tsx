@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useDocumentStore } from '../hooks/useDocumentHub';
 import { Dropdown, Modal, Button, Input } from "@heroui/react";
-import { Folder, FolderOpen, FileText, MoreVertical, Plus, FolderPlus } from 'lucide-react';
+import { Folder, FolderOpen, FileText, Plus, FolderPlus } from 'lucide-react';
 
 interface TreeNode {
   name: string;
@@ -32,10 +32,16 @@ export function FileTree() {
     fetchFiles();
     const interval = setInterval(fetchFiles, 3000);
     const handleRefresh = () => fetchFiles();
+    const handleNewFile = () => {
+      setModalInput("");
+      setModalState({ type: 'createFile' });
+    };
     window.addEventListener("refreshFileTree", handleRefresh);
+    window.addEventListener("trigger-new-file", handleNewFile);
     return () => {
       clearInterval(interval);
       window.removeEventListener("refreshFileTree", handleRefresh);
+      window.removeEventListener("trigger-new-file", handleNewFile);
     };
   }, []);
 
@@ -187,9 +193,11 @@ export function FileTree() {
 
     return (
       <div key={node.path} className="flex flex-col">
-        <div 
-          className={`flex items-center justify-between group/item py-[6px] my-[1px] mr-2 ml-2 rounded-md text-[13px] font-medium transition-all duration-150 cursor-pointer ${isActive ? 'bg-zinc-800/80 text-emerald-400 shadow-sm' : isSelectedFolder ? 'bg-zinc-800/40 text-emerald-300' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}
-          style={{ paddingLeft: `${level * 16 + 6}px`, paddingRight: '6px' }}
+        <Dropdown isOpen={contextMenuNode === node.path} onOpenChange={(isOpen) => !isOpen && setContextMenuNode(null)}>
+          <Dropdown.Trigger>
+            <div 
+              className={`flex items-center justify-between group/item py-[6px] my-[1px] mr-2 ml-2 rounded-md text-[13px] font-medium transition-all duration-150 cursor-pointer ${isActive ? 'bg-zinc-800/80 text-emerald-400 shadow-sm' : isSelectedFolder ? 'bg-zinc-800/40 text-emerald-300' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}
+              style={{ paddingLeft: `${level * 16 + 6}px`, paddingRight: '6px' }}
           onClick={(e) => {
             e.stopPropagation();
             if (node.isFolder) {
@@ -217,32 +225,25 @@ export function FileTree() {
             )}
             <span className="truncate select-none">{node.name}</span>
           </div>
-          
-          <div className="opacity-0 group-hover/item:opacity-100 flex items-center shrink-0">
-            <Dropdown isOpen={contextMenuNode === node.path} onOpenChange={(isOpen) => !isOpen && setContextMenuNode(null)}>
-              <Dropdown.Trigger>
-                <button onClick={(e) => e.stopPropagation()} className="p-1 hover:bg-zinc-700 rounded text-zinc-400 hover:text-zinc-100 transition-colors">
-                  <MoreVertical className="w-3.5 h-3.5" />
-                </button>
-              </Dropdown.Trigger>
-              <Dropdown.Popover className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-xl min-w-[120px]">
-                <Dropdown.Menu aria-label="Item Actions" className="p-1">
-                  <Dropdown.Item key="rename" onPress={() => handleRename(node)} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 cursor-pointer">
-                    Rename
-                  </Dropdown.Item>
-                  <Dropdown.Item key="delete" onPress={() => handleDelete(node)} className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 cursor-pointer">
-                    Delete
-                  </Dropdown.Item>
-                  <Dropdown.Item key="openNative" onPress={() => handleNativeOpen(node)} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 cursor-pointer">
-                    Open in Explorer
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown.Popover>
-            </Dropdown>
-          </div>
         </div>
+      </Dropdown.Trigger>
+      
+      <Dropdown.Popover className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-xl min-w-[120px]">
+        <Dropdown.Menu aria-label="Item Actions" className="p-1">
+          <Dropdown.Item key="rename" onPress={() => handleRename(node)} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 cursor-pointer">
+            Rename
+          </Dropdown.Item>
+          <Dropdown.Item key="delete" onPress={() => handleDelete(node)} className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 cursor-pointer">
+            Delete
+          </Dropdown.Item>
+          <Dropdown.Item key="openNative" onPress={() => handleNativeOpen(node)} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 cursor-pointer">
+            Open in Explorer
+          </Dropdown.Item>
+        </Dropdown.Menu>
+      </Dropdown.Popover>
+    </Dropdown>
         
-        {node.isFolder && isExpanded && (
+    {node.isFolder && isExpanded && (
           <div className="flex flex-col">
             {sortedChildren.map(child => renderNode(child, level + 1))}
           </div>

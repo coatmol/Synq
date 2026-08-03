@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR.Client;
 using Desktop;
 using Engine;
 using Photino.NET;
@@ -118,10 +119,15 @@ internal class Program
             }
             sync.InitializeLocalFolder();
             await hubContext.Clients.All.SendAsync("FileCreated", filename);
+            var discovery = req.HttpContext.RequestServices.GetService<LanDiscoveryService>();
+            if (discovery?.PeerConnection != null)
+            {
+                _ = discovery.PeerConnection.SendAsync("FileCreated", filename);
+            }
             return Results.Ok();
         });
 
-        app.MapDelete("/api/files/{*filename}", async (string filename, WorkspaceState state, SyncManager sync, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext) =>
+        app.MapDelete("/api/files/{*filename}", async (string filename, WorkspaceState state, SyncManager sync, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext, HttpContext httpContext) =>
         {
             var filePath = Path.Combine(state.CurrentFolder, Uri.UnescapeDataString(filename));
             if (File.Exists(filePath))
@@ -130,6 +136,11 @@ internal class Program
             }
             sync.InitializeLocalFolder();
             await hubContext.Clients.All.SendAsync("ItemDeleted", Uri.UnescapeDataString(filename));
+            var discovery = httpContext.RequestServices.GetService<LanDiscoveryService>();
+            if (discovery?.PeerConnection != null)
+            {
+                _ = discovery.PeerConnection.SendAsync("ItemDeleted", Uri.UnescapeDataString(filename));
+            }
             return Results.Ok();
         });
 
@@ -146,10 +157,15 @@ internal class Program
 
             sync.InitializeLocalFolder();
             await hubContext.Clients.All.SendAsync("FolderCreated", path);
+            var discovery = req.HttpContext.RequestServices.GetService<LanDiscoveryService>();
+            if (discovery?.PeerConnection != null)
+            {
+                _ = discovery.PeerConnection.SendAsync("FolderCreated", path);
+            }
             return Results.Ok();
         });
 
-        app.MapDelete("/api/folders/{*path}", async (string path, WorkspaceState state, SyncManager sync, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext) =>
+        app.MapDelete("/api/folders/{*path}", async (string path, WorkspaceState state, SyncManager sync, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext, HttpContext httpContext) =>
         {
             var dirPath = Path.Combine(state.CurrentFolder, Uri.UnescapeDataString(path));
             if (Directory.Exists(dirPath))
@@ -158,6 +174,11 @@ internal class Program
             }
             sync.InitializeLocalFolder();
             await hubContext.Clients.All.SendAsync("ItemDeleted", Uri.UnescapeDataString(path));
+            var discovery = httpContext.RequestServices.GetService<LanDiscoveryService>();
+            if (discovery?.PeerConnection != null)
+            {
+                _ = discovery.PeerConnection.SendAsync("ItemDeleted", Uri.UnescapeDataString(path));
+            }
             return Results.Ok();
         });
 
@@ -185,6 +206,11 @@ internal class Program
             
             sync.InitializeLocalFolder();
             await hubContext.Clients.All.SendAsync("ItemRenamed", oldPath, newPath);
+            var discovery = req.HttpContext.RequestServices.GetService<LanDiscoveryService>();
+            if (discovery?.PeerConnection != null)
+            {
+                _ = discovery.PeerConnection.SendAsync("ItemRenamed", oldPath, newPath);
+            }
             return Results.Ok();
         });
 
@@ -313,20 +339,31 @@ internal class Program
                         win.SetMaximized(isMaximized);
                         break;
                     case "openFolder":
+                        _ = discoveryService.DisconnectFromPeerAsync();
                         var paths = win.ShowOpenFolder();
                         if (paths != null && paths.Length > 0)
                         {
                             var state = app.Services.GetRequiredService<WorkspaceState>();
                             state.CurrentFolder = paths[0];
+                            discoveryService.StartAdvertising();
                             win.SendWebMessage("folderOpened");
                         }
                         break;
+                    case "closeFolder":
+                        _ = discoveryService.DisconnectFromPeerAsync();
+                        discoveryService.StopAdvertising();
+                        var stateToClear = app.Services.GetRequiredService<WorkspaceState>();
+                        stateToClear.CurrentFolder = string.Empty;
+                        win.SendWebMessage("folderClosed");
+                        break;
                     case "openRecent":
+                        _ = discoveryService.DisconnectFromPeerAsync();
                         var recentPath = msg.RootElement.GetProperty("path").GetString();
                         if (!string.IsNullOrEmpty(recentPath) && Directory.Exists(recentPath))
                         {
                             var state = app.Services.GetRequiredService<WorkspaceState>();
                             state.CurrentFolder = recentPath;
+                            discoveryService.StartAdvertising();
                             win.SendWebMessage("folderOpened");
                         }
                         else
