@@ -21,7 +21,7 @@ function Topbar() {
 
   return (
     <div 
-      className="h-12 shrink-0 bg-zinc-900 border-b border-zinc-800/80 flex items-center justify-between px-2 select-none z-50 backdrop-blur-md"
+      className="h-[42px] shrink-0 bg-[#09090b] flex items-center justify-between px-2 select-none z-50"
     >
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-4 pl-2">
@@ -134,21 +134,33 @@ export function AppLayout({ children }: AppLayoutProps) {
         <PanelResizeHandle className="w-1 hover:bg-emerald-500/50 active:bg-emerald-500 transition-colors cursor-col-resize z-50" />
 
         {/* Main Workspace */}
-        <Panel defaultSize="80" className="flex flex-col overflow-hidden relative bg-zinc-950 shadow-inner">
+        <Panel defaultSize="80" className="flex flex-col overflow-hidden relative bg-[#09090b]">
           {openFiles.length > 0 && (
-            <div className="flex bg-zinc-900 border-b border-zinc-800 overflow-x-auto custom-scrollbar no-scrollbar-y shrink-0 min-h-[30px]">
-              {openFiles.map(file => (
-                <div 
-                  key={file} 
-                  onClick={() => setActiveFile(file)}
-                  className={`flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer border-r border-zinc-800 ${activeFile === file ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:bg-zinc-800/50'}`}
-                >
-                  <span className="truncate max-w-[150px]">{file.split('/').pop()}</span>
-                  <button onClick={(e) => closeFile(e, file)} className="hover:text-red-400 rounded-full p-0.5 hover:bg-zinc-700 transition-colors shrink-0">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-              ))}
+            <div className="flex bg-[#09090b] border-b border-zinc-800/60 overflow-x-auto overflow-y-hidden custom-scrollbar shrink-0 min-h-[38px] pt-1 px-2 gap-1.5 items-end">
+              {openFiles.map(file => {
+                const isActive = activeFile === file;
+                return (
+                  <div 
+                    key={file} 
+                    onClick={() => setActiveFile(file)}
+                    className={`group/tab flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-all duration-200 ease-out select-none
+                      ${isActive 
+                        ? 'bg-zinc-950 text-emerald-400 border-t-2 border-t-emerald-500 border-x border-x-zinc-800/60 rounded-t-lg relative -mb-[1px] shadow-[0_-4px_12px_rgba(16,185,129,0.03)] z-10' 
+                        : 'bg-transparent text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50 rounded-t-lg border-t-2 border-t-transparent border-x border-x-transparent'}
+                    `}
+                  >
+                    <span className="truncate max-w-[150px]">{file.split('/').pop()}</span>
+                    <button 
+                      onClick={(e) => closeFile(e, file)} 
+                      className={`rounded-full p-0.5 transition-colors shrink-0 
+                        ${isActive ? 'text-zinc-400 hover:bg-zinc-800 hover:text-red-400' : 'text-zinc-600 opacity-0 group-hover/tab:opacity-100 hover:bg-zinc-800 hover:text-red-400'}
+                      `}
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
           {activeFile ? (

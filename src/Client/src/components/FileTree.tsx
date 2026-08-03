@@ -168,8 +168,8 @@ export function FileTree() {
     return (
       <div key={node.path} className="flex flex-col">
         <div 
-          className={`flex items-center justify-between group/item py-1 rounded-md text-sm transition-colors cursor-pointer pr-1 ${isActive ? 'bg-zinc-800 text-zinc-100' : isSelectedFolder ? 'bg-zinc-800/50 text-zinc-200' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'}`}
-          style={{ paddingLeft: `${level * 12 + 8}px` }}
+          className={`flex items-center justify-between group/item py-[6px] my-[1px] mr-2 ml-2 rounded-md text-[13px] font-medium transition-all duration-150 cursor-pointer ${isActive ? 'bg-zinc-800/80 text-emerald-400 shadow-sm' : isSelectedFolder ? 'bg-zinc-800/40 text-emerald-300' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}
+          style={{ paddingLeft: `${level * 16 + 6}px`, paddingRight: '6px' }}
           onClick={(e) => {
             e.stopPropagation();
             if (node.isFolder) {
@@ -184,11 +184,11 @@ export function FileTree() {
           onDragOver={node.isFolder ? handleDragOver : undefined}
           onDrop={node.isFolder ? (e) => handleDrop(e, node.path) : undefined}
         >
-          <div className="flex items-center gap-1.5 truncate">
+          <div className="flex items-center gap-2 truncate">
             {node.isFolder ? (
-               isExpanded ? <FolderOpen className="w-4 h-4 shrink-0 text-emerald-500" /> : <Folder className="w-4 h-4 shrink-0 text-emerald-500" />
+               isExpanded ? <FolderOpen className={`w-4 h-4 shrink-0 transition-colors ${isActive || isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-500'}`} /> : <Folder className={`w-4 h-4 shrink-0 transition-colors ${isActive || isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-500'}`} />
             ) : (
-               <FileText className="w-4 h-4 shrink-0 text-zinc-500" />
+               <FileText className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-emerald-400' : 'text-zinc-600 group-hover/item:text-zinc-400'}`} />
             )}
             <span className="truncate select-none">{node.name}</span>
           </div>
@@ -233,7 +233,7 @@ export function FileTree() {
       onDragOver={handleDragOver}
       onDrop={(e) => handleDrop(e, '')}
     >
-      <div className="flex items-center justify-between mb-2 select-none px-2 pt-2">
+      <div className="flex items-center justify-between mb-3 select-none px-4 pt-4 pb-2 border-b border-zinc-800/30">
         <h2 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Document Tree</h2>
         <div className="flex items-center gap-1">
           <button 
