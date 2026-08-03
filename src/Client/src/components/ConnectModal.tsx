@@ -4,6 +4,7 @@ import { useState } from "react";
 import { api } from "../api";
 
 export function ConnectModal() {
+  const [isOpen, setIsOpen] = useState(false);
   const [ip, setIp] = useState("");
   const [port, setPort] = useState("5000");
 
@@ -13,6 +14,7 @@ export function ConnectModal() {
       toast.success("Connected", {
         description: `Successfully connected to peer at ${ip}:${port}`
       });
+      setIsOpen(false);
     } else {
       toast.error("Connection Failed", {
         description: `Failed to connect to peer at ${ip}:${port}`
@@ -21,12 +23,13 @@ export function ConnectModal() {
   };
 
   return (
-    <Modal>
-      <Button variant="secondary" className="w-full text-xs font-medium bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/50 transition-all" size="sm">
+    <>
+      <Button onPress={() => setIsOpen(true)} variant="secondary" className="w-full text-xs font-medium bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/50 transition-all" size="sm">
         Manual Connect
       </Button>
-      <Modal.Backdrop className="bg-black/60 backdrop-blur-sm">
-        <Modal.Container>
+      <Modal isOpen={isOpen} onOpenChange={setIsOpen}>
+        <Modal.Backdrop className="bg-black/60 backdrop-blur-sm">
+          <Modal.Container>
           <Modal.Dialog className="bg-zinc-900 border border-zinc-800 shadow-2xl rounded-xl overflow-hidden">
             <Modal.CloseTrigger className="text-zinc-400 hover:text-white transition-colors" />
             <Modal.Header className="border-b border-zinc-800 bg-zinc-900/50 p-4">
@@ -58,5 +61,6 @@ export function ConnectModal() {
         </Modal.Container>
       </Modal.Backdrop>
     </Modal>
+    </>
   );
 }

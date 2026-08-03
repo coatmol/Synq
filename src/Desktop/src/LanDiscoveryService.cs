@@ -60,6 +60,34 @@ public class LanDiscoveryService : IDisposable
 
         _mdns.Start();
         _serviceDiscovery.Advertise(_serviceProfile);
+
+        _pingTimer = new Timer(PingPeers, null, 5000, 5000);
+    }
+
+    private async void PingPeers(object? state)
+    {
+        var keys = _discoveredPeers.Keys.ToList();
+        using var http = new HttpClient();
+        http.Timeout = TimeSpan.FromSeconds(2);
+        
+        foreach (var key in keys)
+        {
+            if (_discoveredPeers.TryGetValue(key, out var peer))
+            {
+                try
+                {
+                    var res = await http.GetAsync($"http://{peer.IP}:{peer.Port}/api/settings");
+                    if (!res.IsSuccessStatusCode)
+                    {
+                        _discoveredPeers.Remove(key);
+                    }
+                }
+                catch
+                {
+                    _discoveredPeers.Remove(key);
+                }
+            }
+        }
     }
 
     public void UpdateUsername(string newUsername)
@@ -84,10 +112,12 @@ public class LanDiscoveryService : IDisposable
     public void Dispose()
     {
         Stop();
+        _pingTimer?.Dispose();
         _mdns?.Dispose();
     }
 
     private readonly Dictionary<string, (string IP, int Port)> _discoveredPeers = new();
+    private Timer? _pingTimer;
 
     public IEnumerable<object> GetDiscoveredPeers()
     {

@@ -1,5 +1,4 @@
 import { Avatar, Tooltip } from "@heroui/react";
-import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 
@@ -24,18 +23,7 @@ export function LanPeersPanel() {
           <Tooltip key={peer.id} delay={0} closeDelay={0}>
             <Tooltip.Trigger>
               <div 
-                onClick={() => api.connectPeer(peer.ip, peer.port).then(ok => { 
-                  if(ok) {
-                    toast.success("Connected", {
-                      description: `Successfully connected to ${peer.name}`
-                    });
-                  } else {
-                    toast.error("Connection Failed", {
-                      description: `Failed to connect to ${peer.name}`
-                    });
-                  }
-                })}
-                className={`relative inline-block rounded-full ring-2 ring-zinc-950 transition-transform hover:-translate-y-0.5 hover:z-10 cursor-pointer ${peer.status === 'offline' ? 'opacity-50 grayscale' : ''}`}
+                className={`relative inline-block rounded-full ring-2 ring-zinc-950 transition-transform hover:-translate-y-0.5 hover:z-10 cursor-default ${peer.status === 'offline' ? 'opacity-50 grayscale' : ''}`}
               >
                 <Avatar size="sm" color={peer.status === 'online' ? 'success' : 'default'} className="bg-zinc-800 text-zinc-300">
                   <Avatar.Fallback>{peer.init}</Avatar.Fallback>
