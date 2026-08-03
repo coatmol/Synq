@@ -73,7 +73,7 @@ docker run -d \
   --network host \
   -v /path/to/your/notes:/data \
   -e port=5000 \
-  synq-server
+  ghcr.io/coatmol/synq:latest
 ```
 
 - **Pre-compiled Binaries:** Download the `Synq-Server-*` `.zip` from the [Releases page](https://github.com/coatmol/Synq/releases).
