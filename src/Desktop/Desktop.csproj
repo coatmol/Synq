@@ -5,7 +5,16 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <Version>1.0.0</Version>
+        <Product>Synq</Product>
+        <Company>Synq</Company>
+        <ApplicationIcon>..\..\Assets\SynqWhite.ico</ApplicationIcon>
     </PropertyGroup>
+
+    <ItemGroup>
+        <Content Include="..\..\Assets\SynqWhite.ico" CopyToOutputDirectory="PreserveNewest" />
+        <Content Include="..\..\Assets\SynqBlack.ico" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Makaretu.Dns.Multicast.New" Version="0.38.0"/>

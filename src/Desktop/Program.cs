@@ -2,14 +2,13 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
-using Desktop;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using Photino.NET;
 
-namespace Synq;
+namespace Desktop;
 
 internal class Program
 {
@@ -312,6 +311,7 @@ internal class Program
 
         var window = new PhotinoWindow()
             .SetTitle("Synq - Local-First Markdown Editor")
+            .SetIconFile(Path.Combine(AppContext.BaseDirectory, "SynqWhite.ico"))
             .SetSize(1280, 800)
             .Center()
             .SetContextMenuEnabled(false)
