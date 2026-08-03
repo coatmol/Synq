@@ -43,27 +43,42 @@ jobs:
         # Building as self-contained so users don't need to install the .NET runtime
         run: dotnet publish src/Desktop/Desktop.csproj -c Release -r ${{ matrix.rid }} --self-contained true -o publish
 
+      - name: Publish Server App
+        run: dotnet publish src/Server/Server.csproj -c Release -r ${{ matrix.rid }} -p:PublishSingleFile=true --self-contained true -o publish-server
+
       - name: Archive Build (Windows)
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path publish\* -DestinationPath Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
+        run: |
+          Compress-Archive -Path publish\* -DestinationPath Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
+          Compress-Archive -Path publish-server\* -DestinationPath Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }}
 
       - name: Archive Build (macOS)
         if: runner.os == 'macOS'
         run: |
           cd publish
           zip -r ../Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }} ./*
+          cd ../publish-server
+          zip -r ../Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }} ./*
 
       - name: Archive Build (Linux)
         if: runner.os == 'Linux'
         run: |
           cd publish
           tar -czvf ../Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }} ./*
+          cd ../publish-server
+          tar -czvf ../Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }} ./*
 
-      - name: Upload Artifact
+      - name: Upload Desktop Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
           path: Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
+
+      - name: Upload Server Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }}
+          path: Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }}
 
   release:
     name: Create Release
@@ -83,3 +98,35 @@ jobs:
         with:
           files: release-artifacts/*
           generate_release_notes: true
+
+  docker:
+    name: Publish Docker Image
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

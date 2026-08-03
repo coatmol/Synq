@@ -13,8 +13,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Content Include="..\..\Assets\SynqWhite.ico" CopyToOutputDirectory="PreserveNewest" />
-        <Content Include="..\..\Assets\SynqBlack.ico" CopyToOutputDirectory="PreserveNewest" />
+        <Content Include="..\..\Assets\SynqWhite.ico" CopyToOutputDirectory="PreserveNewest"/>
+        <Content Include="..\..\Assets\SynqBlack.ico" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
     <ItemGroup>

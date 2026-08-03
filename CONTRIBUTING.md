@@ -5,6 +5,7 @@ First off, thank you for considering contributing to Synq! It's people like you 
 ## What is Synq?
 Synq is a local-first markdown editor and knowledge base with a custom peer-to-peer CRDT engine for real-time collaboration. The project consists of:
 - **Desktop**: A Photino.NET wrapper serving as the native desktop shell.
+- **Server**: A headless .NET Core executable for 24/7 homelab peer deployment.
 - **Engine**: A custom C# CRDT implementation for decentralized state synchronization.
 - **Client**: A React + Vite front-end for the markdown editor UI.
 
@@ -35,6 +36,14 @@ To build and run Synq locally, you will need:
    ```bash
    cd src/Desktop
    dotnet run -- --dev
+   ```
+5. **Run the Headless Server (Optional):**
+   If you are working on the homelab server node, you can run it directly:
+   ```bash
+   cd src/Server
+   # Set a custom folder for the server to sync notes into
+   export folder=./TestVault
+   dotnet run
    ```
 
 ## Found a Bug?
