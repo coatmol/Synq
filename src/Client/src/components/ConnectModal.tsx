@@ -3,14 +3,34 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { api } from "../api";
 
-export function ConnectModal() {
-  const [isOpen, setIsOpen] = useState(false);
+import { useEffect } from "react";
+
+export function ConnectModal({ isOpen: externalIsOpen, onClose, onPendingConnect, initialPeer }: { isOpen?: boolean, onClose?: () => void, onPendingConnect?: (peer: any) => void, initialPeer?: any } = {}) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = (val: boolean) => {
+    if (externalIsOpen === undefined) setInternalIsOpen(val);
+    if (!val && onClose) onClose();
+  };
   const [ip, setIp] = useState("");
   const [port, setPort] = useState("5000");
   const [password, setPassword] = useState("");
 
+  useEffect(() => {
+    if (initialPeer) {
+      setIp(initialPeer.ip);
+      setPort(initialPeer.port.toString());
+      setPassword(initialPeer.password || "");
+    }
+  }, [initialPeer]);
+
   const handleConnect = async () => {
-    const success = await api.connectManualPeer({ ip, port: parseInt(port, 10), password: password || undefined });
+    if (onPendingConnect) {
+      onPendingConnect({ ip, port: parseInt(port, 10), name: "Manual IP", password: password });
+      setIsOpen(false);
+      return;
+    }
+    const success = await api.connectManualPeer({ ip, port: parseInt(port, 10), password: password });
     if (success) {
       toast.success("Connected", {
         description: `Successfully connected to peer at ${ip}:${port}`
@@ -25,9 +45,11 @@ export function ConnectModal() {
 
   return (
     <>
-      <Button onPress={() => setIsOpen(true)} variant="secondary" className="text-xs font-medium bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/50 transition-all px-3 h-7 rounded-md shadow-sm" size="sm">
-        Connect via IP
-      </Button>
+      {externalIsOpen === undefined && (
+        <Button onPress={() => setIsOpen(true)} variant="secondary" className="text-xs font-medium bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/50 transition-all px-3 h-7 rounded-md shadow-sm" size="sm">
+          Connect via IP
+        </Button>
+      )}
       <Modal isOpen={isOpen} onOpenChange={setIsOpen}>
         <Modal.Backdrop className="bg-black/60 backdrop-blur-sm">
           <Modal.Container>
@@ -59,7 +81,7 @@ export function ConnectModal() {
             </Modal.Body>
             <Modal.Footer className="border-t border-zinc-800 p-4 bg-zinc-900/50 flex justify-end gap-3">
               <Modal.CloseTrigger>
-                <Button variant="secondary" className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-none">Cancel</Button>
+                <Button onPress={() => setIsOpen(false)} variant="secondary" className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-none">Cancel</Button>
               </Modal.CloseTrigger>
               <Button onPress={handleConnect} className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-[0_0_15px_rgba(5,150,105,0.3)]">Connect</Button>
             </Modal.Footer>

@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using Engine;
 using Makaretu.Dns;
@@ -165,98 +167,101 @@ public class LanDiscoveryService : IDisposable
         {
             using var http = new HttpClient();
             if (_workspaceState.Settings.PeerPasswords.TryGetValue($"{ip}:{port}", out var pwd))
-            {
-                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", pwd);
-            }
-            
-            // Fetch remote manifest
+                http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", pwd);
+
             var response = await http.GetAsync($"http://{ip}:{port}/api/sync/manifest");
-            if (response.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                var remoteManifest = JsonSerializer.Deserialize<SyncManifest>(content);
-
-                if (remoteManifest != null)
+                if (response.StatusCode == HttpStatusCode.Unauthorized && !string.IsNullOrEmpty(pwd))
                 {
-                    // Process manifest diffs locally
-                    await _syncManager.ProcessRemoteManifest(remoteManifest, $"http://{ip}:{port}");
-
-                    // Stop any existing connection
-                    if (PeerConnection != null) await PeerConnection.StopAsync();
-
-                    PeerConnection = new HubConnectionBuilder()
-                        .WithUrl($"http://{ip}:{port}/hub", options => 
-                        {
-                            if (_workspaceState.Settings.PeerPasswords.TryGetValue($"{ip}:{port}", out var pwd2))
-                            {
-                                options.AccessTokenProvider = () => Task.FromResult(pwd2);
-                            }
-                        })
-                        .WithAutomaticReconnect()
-                        .Build();
-
-                    PeerConnection.On<string, List<CharNode>>("SyncNodes", async (filename, nodes) =>
-                    {
-                        var seq = _manager.GetOrCreateDocument(filename);
-                        foreach (var node in nodes) seq.RemoteMerge(node);
-                        _manager.SaveToDisk(filename);
-                        await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, seq.ToString());
-                    });
-
-                    PeerConnection.On<string, string>("ItemRenamed", async (oldPath, newPath) =>
-                    {
-                        var oldAbs = PathUtils.GetSafePath(_workspaceState.CurrentFolder, oldPath);
-                        var newAbs = PathUtils.GetSafePath(_workspaceState.CurrentFolder, newPath);
-                        if (oldAbs == null || newAbs == null) return;
-                        if (File.Exists(oldAbs))
-                        {
-                            var dir = Path.GetDirectoryName(newAbs);
-                            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                            File.Move(oldAbs, newAbs);
-                        }
-                        else if (Directory.Exists(oldAbs))
-                        {
-                            Directory.Move(oldAbs, newAbs);
-                        }
-
-                        _syncManager.InitializeLocalFolder();
-                        await hubContext.Clients.All.SendAsync("ItemRenamed", oldPath, newPath);
-                    });
-
-                    PeerConnection.On<string>("ItemDeleted", async path =>
-                    {
-                        var filePath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, path);
-                        if (filePath == null) return;
-                        if (File.Exists(filePath)) File.Delete(filePath);
-                        else if (Directory.Exists(filePath)) Directory.Delete(filePath, true);
-                        _syncManager.InitializeLocalFolder();
-                        await hubContext.Clients.All.SendAsync("ItemDeleted", path);
-                    });
-
-                    PeerConnection.On<string>("FileCreated", async filename =>
-                    {
-                        var filePath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, filename);
-                        if (filePath == null) return;
-                        var dir = Path.GetDirectoryName(filePath);
-                        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                        if (!File.Exists(filePath))
-                            await File.WriteAllTextAsync(filePath, "# " + Path.GetFileNameWithoutExtension(filename));
-                        _syncManager.InitializeLocalFolder();
-                        await hubContext.Clients.All.SendAsync("FileCreated", filename);
-                    });
-
-                    PeerConnection.On<string>("FolderCreated", async path =>
-                    {
-                        var dirPath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, path);
-                        if (dirPath == null) return;
-                        if (!Directory.Exists(dirPath)) Directory.CreateDirectory(dirPath);
-                        _syncManager.InitializeLocalFolder();
-                        await hubContext.Clients.All.SendAsync("FolderCreated", path);
-                    });
-
-                    await PeerConnection.StartAsync();
-                    return true;
+                    _workspaceState.Settings.PeerPasswords.Remove($"{ip}:{port}");
+                    _workspaceState.SaveSettings();
                 }
+
+                return false;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var remoteManifest = JsonSerializer.Deserialize<SyncManifest>(content);
+
+            if (remoteManifest != null)
+            {
+                // Process manifest diffs locally
+                await _syncManager.ProcessRemoteManifest(remoteManifest, $"http://{ip}:{port}");
+
+                // Stop any existing connection
+                if (PeerConnection != null) await PeerConnection.StopAsync();
+
+                PeerConnection = new HubConnectionBuilder()
+                    .WithUrl($"http://{ip}:{port}/hub", options =>
+                    {
+                        if (_workspaceState.Settings.PeerPasswords.TryGetValue($"{ip}:{port}", out var pwd2))
+                            options.AccessTokenProvider = () => Task.FromResult(pwd2);
+                    })
+                    .WithAutomaticReconnect()
+                    .Build();
+
+                PeerConnection.On<string, List<CharNode>>("SyncNodes", async (filename, nodes) =>
+                {
+                    var seq = _manager.GetOrCreateDocument(filename);
+                    foreach (var node in nodes) seq.RemoteMerge(node);
+                    _manager.SaveToDisk(filename);
+                    await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, seq.ToString());
+                });
+
+                PeerConnection.On<string, string>("ItemRenamed", async (oldPath, newPath) =>
+                {
+                    var oldAbs = PathUtils.GetSafePath(_workspaceState.CurrentFolder, oldPath);
+                    var newAbs = PathUtils.GetSafePath(_workspaceState.CurrentFolder, newPath);
+                    if (oldAbs == null || newAbs == null) return;
+                    if (File.Exists(oldAbs))
+                    {
+                        var dir = Path.GetDirectoryName(newAbs);
+                        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                        File.Move(oldAbs, newAbs);
+                    }
+                    else if (Directory.Exists(oldAbs))
+                    {
+                        Directory.Move(oldAbs, newAbs);
+                    }
+
+                    _syncManager.InitializeLocalFolder();
+                    await hubContext.Clients.All.SendAsync("ItemRenamed", oldPath, newPath);
+                });
+
+                PeerConnection.On<string>("ItemDeleted", async path =>
+                {
+                    var filePath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, path);
+                    if (filePath == null) return;
+                    if (File.Exists(filePath)) File.Delete(filePath);
+                    else if (Directory.Exists(filePath)) Directory.Delete(filePath, true);
+                    _syncManager.InitializeLocalFolder();
+                    await hubContext.Clients.All.SendAsync("ItemDeleted", path);
+                });
+
+                PeerConnection.On<string>("FileCreated", async filename =>
+                {
+                    var filePath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, filename);
+                    if (filePath == null) return;
+                    var dir = Path.GetDirectoryName(filePath);
+                    if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                    if (!File.Exists(filePath))
+                        await File.WriteAllTextAsync(filePath, "# " + Path.GetFileNameWithoutExtension(filename));
+                    _syncManager.InitializeLocalFolder();
+                    await hubContext.Clients.All.SendAsync("FileCreated", filename);
+                });
+
+                PeerConnection.On<string>("FolderCreated", async path =>
+                {
+                    var dirPath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, path);
+                    if (dirPath == null) return;
+                    if (!Directory.Exists(dirPath)) Directory.CreateDirectory(dirPath);
+                    _syncManager.InitializeLocalFolder();
+                    await hubContext.Clients.All.SendAsync("FolderCreated", path);
+                });
+
+                await PeerConnection.StartAsync();
+                return true;
             }
         }
         catch (Exception ex)

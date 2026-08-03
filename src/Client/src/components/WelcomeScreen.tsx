@@ -1,6 +1,8 @@
 import { Button, Avatar, Spinner } from "@heroui/react";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { api } from "../api";
+import { ConnectModal } from "./ConnectModal";
 
 interface WelcomeScreenProps {
   onOpenEditor: (path?: string) => void;
@@ -8,9 +10,29 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
   const [showPeers, setShowPeers] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
   const [peers, setPeers] = useState<any[]>([]);
   const [recentFolders, setRecentFolders] = useState<string[]>([]);
-  const [pendingPeer, setPendingPeer] = useState<{ ip: string, port: number, name: string } | null>(null);
+  const [pendingPeer, setPendingPeer] = useState<{ ip: string, port: number, name: string, password?: string } | null>(null);
+  const [connectModalInitialPeer, setConnectModalInitialPeer] = useState<any>(null);
+
+  const verifyAndSetPendingPeer = async (peer: { ip: string, port: number, name: string, password?: string }) => {
+    try {
+      const success = await api.connectManualPeer({ ip: peer.ip, port: peer.port, password: peer.password });
+      if (success) {
+        setPendingPeer(peer);
+      } else {
+        toast.error("Failed to connect to peer", {
+            description: "Please check the password or ensure the peer is online."
+        });
+        setConnectModalInitialPeer(peer);
+        setShowConnectModal(true);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("An error occurred while connecting.");
+    }
+  };
 
   useEffect(() => {
     api.getSettings().then(settings => {
@@ -33,23 +55,18 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
     return () => clearInterval(interval);
   }, [showPeers]);
 
-  const handleNewProject = async () => {
+  const handleNewProject = async (peerOverride?: { ip: string, port: number, name: string, password?: string }) => {
     try {
+      const targetPeer = peerOverride || pendingPeer;
       if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
-        (window as any).external.sendMessage(JSON.stringify({ action: "openFolder" }));
+        (window as any).external.sendMessage(JSON.stringify({ action: "openFolder", peer: targetPeer }));
       } else {
+        if (targetPeer) {
+            await api.connectManualPeer({ ip: targetPeer.ip, port: targetPeer.port, password: targetPeer.password });
+        }
         // Fallback for web browser testing
         onOpenEditor();
       }
-      
-      if (pendingPeer) {
-        // Queue the connection right after the folder is picked
-        await api.connectManualPeer({ ip: pendingPeer.ip, port: pendingPeer.port });
-      }
-      // Note: We intentionally do not call onOpenEditor() here if in native app!
-      // The native backend will pop a blocking folder picker dialog.
-      // Once the user selects a folder, the backend sends a "folderOpened" web message.
-      // App.tsx intercepts that message and switches the view.
     } catch (e) {
       console.error(e);
       onOpenEditor();
@@ -58,15 +75,13 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
 
   const handleOpenRecent = async (path: string) => {
     if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
-      (window as any).external.sendMessage(JSON.stringify({ action: "openRecent", path }));
+      (window as any).external.sendMessage(JSON.stringify({ action: "openRecent", path, peer: pendingPeer }));
     } else {
       onOpenEditor();
+      if (pendingPeer) {
+        await api.connectManualPeer({ ip: pendingPeer.ip, port: pendingPeer.port, password: pendingPeer.password });
+      }
     }
-    
-    if (pendingPeer) {
-      await api.connectManualPeer({ ip: pendingPeer.ip, port: pendingPeer.port });
-    }
-    // Similar to handleNewProject, we wait for "folderOpened" message which will trigger reload in native mode
   };
 
 
@@ -116,7 +131,7 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
             )}
 
             <Button 
-              onPress={handleNewProject}
+              onPress={() => handleNewProject()}
               className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-medium py-6 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all"
             >
               Browse Local Folder
@@ -153,7 +168,7 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
             )}
 
             <Button 
-              onPress={handleNewProject}
+              onPress={() => handleNewProject()}
               className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-medium py-6 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all"
             >
               Browse Local Folder
@@ -183,7 +198,7 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
                 peers.map(peer => (
                   <div 
                     key={peer.id}
-                    onClick={() => setPendingPeer({ ip: peer.ip, port: peer.port, name: peer.name })}
+                    onClick={() => verifyAndSetPendingPeer({ ip: peer.ip, port: peer.port, name: peer.name })}
                     className={`flex items-center gap-4 p-3 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 hover:border-emerald-500/50 transition-all cursor-pointer group ${peer.status === 'offline' ? 'opacity-50 grayscale' : ''}`}
                   >
                     <div className="relative">
@@ -207,6 +222,17 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
             </div>
             
             <Button 
+              onPress={() => {
+                setConnectModalInitialPeer(null);
+                setShowConnectModal(true);
+              }}
+              variant="ghost"
+              className="w-full bg-zinc-900 hover:bg-zinc-800 text-emerald-500 font-medium py-4 rounded-xl border border-zinc-800/50 transition-all"
+            >
+              Connect via IP
+            </Button>
+            
+            <Button 
               onPress={() => setShowPeers(false)}
               variant="ghost"
               className="w-full text-zinc-500 mt-2 hover:bg-zinc-800 border-none"
@@ -216,6 +242,16 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
           </div>
         )}
       </div>
+      
+      <ConnectModal 
+        isOpen={showConnectModal} 
+        onClose={() => setShowConnectModal(false)}
+        initialPeer={connectModalInitialPeer}
+        onPendingConnect={(peer) => {
+          verifyAndSetPendingPeer(peer);
+          setShowConnectModal(false);
+        }}
+      />
     </div>
   );
 }

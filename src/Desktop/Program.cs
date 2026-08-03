@@ -118,6 +118,26 @@ internal class Program
                             state.CurrentFolder = paths[0];
                             discoveryService.StartAdvertising();
                             win.SendWebMessage("folderOpened");
+
+                            if (msg.RootElement.TryGetProperty("peer", out var peerEl) &&
+                                peerEl.ValueKind != JsonValueKind.Null)
+                            {
+                                var peerIp = peerEl.GetProperty("ip").GetString();
+                                var peerPort = peerEl.GetProperty("port").GetInt32();
+                                var pwd = "";
+                                if (peerEl.TryGetProperty("password", out var pwdEl) &&
+                                    pwdEl.ValueKind != JsonValueKind.Null)
+                                    pwd = pwdEl.GetString() ?? "";
+
+                                if (!string.IsNullOrEmpty(pwd))
+                                {
+                                    state.Settings.PeerPasswords[$"{peerIp}:{peerPort}"] = pwd;
+                                    state.SaveSettings();
+                                }
+
+                                var ctx = app.Services.GetRequiredService<IHubContext<DocumentHub>>();
+                                _ = discoveryService.ConnectToPeerAsync(peerIp!, peerPort, ctx);
+                            }
                         }
 
                         break;
@@ -137,6 +157,26 @@ internal class Program
                             state.CurrentFolder = recentPath;
                             discoveryService.StartAdvertising();
                             win.SendWebMessage("folderOpened");
+
+                            if (msg.RootElement.TryGetProperty("peer", out var peerEl) &&
+                                peerEl.ValueKind != JsonValueKind.Null)
+                            {
+                                var peerIp = peerEl.GetProperty("ip").GetString();
+                                var peerPort = peerEl.GetProperty("port").GetInt32();
+                                var pwd = "";
+                                if (peerEl.TryGetProperty("password", out var pwdEl) &&
+                                    pwdEl.ValueKind != JsonValueKind.Null)
+                                    pwd = pwdEl.GetString() ?? "";
+
+                                if (!string.IsNullOrEmpty(pwd))
+                                {
+                                    state.Settings.PeerPasswords[$"{peerIp}:{peerPort}"] = pwd;
+                                    state.SaveSettings();
+                                }
+
+                                var ctx = app.Services.GetRequiredService<IHubContext<DocumentHub>>();
+                                _ = discoveryService.ConnectToPeerAsync(peerIp!, peerPort, ctx);
+                            }
                         }
                         else
                         {

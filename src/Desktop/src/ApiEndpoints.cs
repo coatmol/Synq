@@ -16,16 +16,24 @@ public static class ApiEndpoints
             var state = context.RequestServices.GetRequiredService<WorkspaceState>();
             if (!string.IsNullOrEmpty(state.Settings.Password))
             {
-                var isLocal = !state.IsHeadless && (context.Connection.RemoteIpAddress == null || 
-                              IPAddress.IsLoopback(context.Connection.RemoteIpAddress) || 
-                              context.Connection.RemoteIpAddress.ToString() == context.Connection.LocalIpAddress?.ToString());
-                              
-                var isExcluded = context.Request.Path.StartsWithSegments("/api/settings") && context.Request.Method == "GET";
-                
-                if (!isLocal && !isExcluded)
+                var isLocal = !state.IsHeadless && (context.Connection.RemoteIpAddress == null ||
+                                                    IPAddress.IsLoopback(context.Connection.RemoteIpAddress) ||
+                                                    context.Connection.RemoteIpAddress.ToString() ==
+                                                    context.Connection.LocalIpAddress?.ToString());
+
+                var isExcluded = context.Request.Path.StartsWithSegments("/api/settings") &&
+                                 context.Request.Method == "GET";
+
+                var isPeerEndpoint = context.Request.Path.StartsWithSegments("/api/sync/manifest") ||
+                                     context.Request.Path.StartsWithSegments("/api/rawfile");
+
+                var bypassAuth = isLocal && !isPeerEndpoint;
+
+                if (!bypassAuth && !isExcluded)
                 {
                     var token = "";
-                    if (context.Request.Headers.TryGetValue("Authorization", out var authHeader) && authHeader.ToString().StartsWith("Bearer "))
+                    if (context.Request.Headers.TryGetValue("Authorization", out var authHeader) &&
+                        authHeader.ToString().StartsWith("Bearer "))
                         token = authHeader.ToString().Substring(7);
                     else if (context.Request.Query.TryGetValue("access_token", out var queryToken))
                         token = queryToken.ToString();
@@ -37,6 +45,7 @@ public static class ApiEndpoints
                     }
                 }
             }
+
             await next();
         });
 
@@ -247,25 +256,26 @@ public static class ApiEndpoints
                 var success = await discovery.ConnectToPeerAsync(ip!, port, hubContext);
                 return success ? Results.Ok() : Results.BadRequest();
             });
-            
-        app.MapPost("/api/peers/manual", async (HttpRequest req, LanDiscoveryService discovery, WorkspaceState state, IHubContext<DocumentHub> hubContext) => 
+
+        app.MapPost("/api/peers/manual", async (HttpRequest req, LanDiscoveryService discovery, WorkspaceState state,
+            IHubContext<DocumentHub> hubContext) =>
         {
             using var reader = new StreamReader(req.Body);
             var body = await reader.ReadToEndAsync();
             var data = JsonDocument.Parse(body);
             var ip = data.RootElement.GetProperty("ip").GetString();
             var port = data.RootElement.GetProperty("port").GetInt32();
-            
-            var password = "";
-            if (data.RootElement.TryGetProperty("password", out var pwdEl))
-                password = pwdEl.GetString() ?? "";
-                
-            if (!string.IsNullOrEmpty(password)) 
+
+            if (data.RootElement.TryGetProperty("password", out var pwdEl) && pwdEl.ValueKind != JsonValueKind.Null)
             {
-                state.Settings.PeerPasswords[$"{ip}:{port}"] = password;
-                state.SaveSettings();
+                var pwdStr = pwdEl.GetString() ?? "";
+                if (!string.IsNullOrEmpty(pwdStr))
+                {
+                    state.Settings.PeerPasswords[$"{ip}:{port}"] = pwdStr;
+                    state.SaveSettings();
+                }
             }
-            
+
             var success = await discovery.ConnectToPeerAsync(ip!, port, hubContext);
             return success ? Results.Ok() : Results.BadRequest();
         });
@@ -282,7 +292,21 @@ public static class ApiEndpoints
             return Results.Ok(new { ips = ips.Distinct(), port = discovery.Port });
         });
 
-        app.MapGet("/api/settings", (WorkspaceState state) => { return Results.Ok(state.Settings); });
+        app.MapGet("/api/settings", (HttpContext context, WorkspaceState state) =>
+        {
+            var isLocal = !state.IsHeadless && (context.Connection.RemoteIpAddress == null ||
+                                                IPAddress.IsLoopback(context.Connection.RemoteIpAddress) ||
+                                                context.Connection.RemoteIpAddress.ToString() ==
+                                                context.Connection.LocalIpAddress?.ToString());
+
+            if (isLocal)
+                return Results.Ok(state.Settings);
+
+            return Results.Ok(new
+            {
+                username = state.Settings.Username
+            });
+        });
 
         app.MapPost("/api/settings", async (HttpRequest req, WorkspaceState state) =>
         {
@@ -290,13 +314,9 @@ public static class ApiEndpoints
             var body = await reader.ReadToEndAsync();
             var data = JsonDocument.Parse(body);
             if (data.RootElement.TryGetProperty("username", out var usernameEl))
-            {
                 state.Settings.Username = usernameEl.GetString()!;
-            }
             if (data.RootElement.TryGetProperty("password", out var passwordEl))
-            {
                 state.Settings.Password = passwordEl.GetString() ?? "";
-            }
             state.SaveSettings();
 
             return Results.Ok();

@@ -1,52 +1,56 @@
-using System.Text.Json;
-
-using System.Text.Json.Serialization;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Desktop;
 
 public class AppSettings
 {
     public string Username { get; set; } = Environment.UserName;
-    
-    [JsonIgnore]
-    public string Password { get; set; } = "";
-    
+
+    [JsonIgnore] public string Password { get; set; } = "";
+
     [JsonPropertyName("password")]
-    public string PasswordBase64 
-    { 
+    public string PasswordBase64
+    {
         get => string.IsNullOrEmpty(Password) ? "" : Convert.ToBase64String(Encoding.UTF8.GetBytes(Password));
-        set 
+        set
         {
             if (string.IsNullOrEmpty(value)) Password = "";
-            else 
-            {
-                try { Password = Encoding.UTF8.GetString(Convert.FromBase64String(value)); }
-                catch { Password = value; }
-            }
+            else
+                try
+                {
+                    Password = Encoding.UTF8.GetString(Convert.FromBase64String(value));
+                }
+                catch
+                {
+                    Password = value;
+                }
         }
     }
-    
+
     public List<string> RecentFolders { get; set; } = new();
-    
-    [JsonIgnore]
-    public Dictionary<string, string> PeerPasswords { get; set; } = new();
-    
+
+    [JsonIgnore] public Dictionary<string, string> PeerPasswords { get; set; } = new();
+
     [JsonPropertyName("peerPasswords")]
     public Dictionary<string, string> PeerPasswordsBase64
     {
-        get => PeerPasswords.ToDictionary(kvp => kvp.Key, kvp => Convert.ToBase64String(Encoding.UTF8.GetBytes(kvp.Value)));
-        set 
+        get => PeerPasswords.ToDictionary(kvp => kvp.Key,
+            kvp => Convert.ToBase64String(Encoding.UTF8.GetBytes(kvp.Value)));
+        set
         {
             PeerPasswords = new Dictionary<string, string>();
             if (value != null)
-            {
                 foreach (var kvp in value)
-                {
-                    try { PeerPasswords[kvp.Key] = Encoding.UTF8.GetString(Convert.FromBase64String(kvp.Value)); }
-                    catch { PeerPasswords[kvp.Key] = kvp.Value; }
-                }
-            }
+                    try
+                    {
+                        PeerPasswords[kvp.Key] = Encoding.UTF8.GetString(Convert.FromBase64String(kvp.Value));
+                    }
+                    catch
+                    {
+                        PeerPasswords[kvp.Key] = kvp.Value;
+                    }
         }
     }
 }

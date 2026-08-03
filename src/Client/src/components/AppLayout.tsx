@@ -62,7 +62,6 @@ function Topbar() {
           <LanPeersPanel />
           <div className="w-px h-5 bg-zinc-800 mx-1"></div>
           <SettingsModal />
-          <ConnectModal />
           <Button 
             onPress={async () => {
               const info = await api.getShareInfo();
