@@ -17,14 +17,6 @@ function Topbar() {
     }
   };
 
-  const tools = [
-    { icon: "B", label: "Bold", shortcut: "Ctrl+B" },
-    { icon: "I", label: "Italic", shortcut: "Ctrl+I" },
-    { icon: "H", label: "Heading", shortcut: "Ctrl+H" },
-    { icon: "</>", label: "Code Block", shortcut: "Ctrl+Alt+C" },
-    { icon: "☑", label: "Task List", shortcut: "Ctrl+Shift+T" },
-  ];
-
   return (
     <div 
       className="h-12 shrink-0 bg-zinc-900 border-b border-zinc-800/80 flex items-center justify-between px-2 select-none z-50 backdrop-blur-md"
@@ -61,41 +53,6 @@ function Topbar() {
               </Dropdown.Menu>
             </Dropdown.Popover>
           </Dropdown>
-        </div>
-        
-        {/* Formatting Tools */}
-        <div className="flex items-center gap-1.5 border-l border-zinc-800/80 pl-6">
-          {tools.map(tool => (
-            <Tooltip key={tool.label}>
-              <Tooltip.Trigger>
-                <Button 
-                  variant="secondary" 
-                  className="w-8 h-8 p-0 min-w-0 bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 border-none transition-all font-medium rounded-md" 
-                  aria-label={tool.label}
-                >
-                  {tool.icon}
-                </Button>
-              </Tooltip.Trigger>
-              <Tooltip.Content className="bg-zinc-800 border border-zinc-700 text-zinc-200 px-3 py-1.5 text-xs shadow-xl rounded-md">
-                <Tooltip.Arrow className="fill-zinc-800" />
-                {tool.label} <span className="text-zinc-500 ml-2 font-mono text-[10px]">{tool.shortcut}</span>
-              </Tooltip.Content>
-            </Tooltip>
-          ))}
-          <div className="w-px h-5 bg-zinc-800 mx-2"></div>
-          <Tooltip>
-            <Tooltip.Trigger>
-              <Button variant="secondary" className="w-8 h-8 p-0 min-w-0 bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 border-none transition-all rounded-md">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-              </Button>
-            </Tooltip.Trigger>
-            <Tooltip.Content className="bg-zinc-800 border border-zinc-700 text-zinc-200 px-3 py-1.5 text-xs shadow-xl rounded-md">
-              <Tooltip.Arrow className="fill-zinc-800" />
-              Link <span className="text-zinc-500 ml-2 font-mono text-[10px]">Ctrl+K</span>
-            </Tooltip.Content>
-          </Tooltip>
         </div>
       </div>
 
