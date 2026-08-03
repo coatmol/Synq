@@ -20,6 +20,7 @@ export function FileTree() {
   
   const [modalState, setModalState] = useState<{ type: 'createFile' | 'createFolder' | 'rename' | 'delete' | null, node?: TreeNode }>({ type: null });
   const [modalInput, setModalInput] = useState("");
+  const [contextMenuNode, setContextMenuNode] = useState<string | null>(null);
 
   const fetchFiles = async () => {
     const data = await api.getFiles();
@@ -98,11 +99,13 @@ export function FileTree() {
   };
 
   const handleRename = (node: TreeNode) => {
+    setContextMenuNode(null);
     setModalInput(node.name);
     setModalState({ type: 'rename', node });
   };
 
   const handleDelete = (node: TreeNode) => {
+    setContextMenuNode(null);
     setModalState({ type: 'delete', node });
   };
 
@@ -138,6 +141,7 @@ export function FileTree() {
   };
 
   const handleNativeOpen = async (node: TreeNode) => {
+    setContextMenuNode(null);
     await api.openNative(node.path);
   };
 
@@ -195,6 +199,11 @@ export function FileTree() {
               setActiveFile(node.path);
             }
           }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setContextMenuNode(node.path);
+          }}
           draggable
           onDragStart={(e) => handleDragStart(e, node.path)}
           onDragOver={node.isFolder ? handleDragOver : undefined}
@@ -210,7 +219,7 @@ export function FileTree() {
           </div>
           
           <div className="opacity-0 group-hover/item:opacity-100 flex items-center shrink-0">
-            <Dropdown>
+            <Dropdown isOpen={contextMenuNode === node.path} onOpenChange={(isOpen) => !isOpen && setContextMenuNode(null)}>
               <Dropdown.Trigger>
                 <button onClick={(e) => e.stopPropagation()} className="p-1 hover:bg-zinc-700 rounded text-zinc-400 hover:text-zinc-100 transition-colors">
                   <MoreVertical className="w-3.5 h-3.5" />
