@@ -207,13 +207,6 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
             </Button>
           </div>
         )}
-
-        <div className="mt-8 flex items-center justify-center gap-2 text-xs text-zinc-600">
-          <kbd className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px]">Ctrl</kbd>
-          <span>+</span>
-          <kbd className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px]">O</kbd>
-          <span className="ml-2">to open a file</span>
-        </div>
       </div>
     </div>
   );

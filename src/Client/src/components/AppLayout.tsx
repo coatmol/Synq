@@ -106,8 +106,8 @@ export function AppLayout({ children }: AppLayoutProps) {
     if (activeFile) fetchDocument();
   }, [activeFile]);
 
-  const closeFile = (e: React.MouseEvent, file: string) => {
-    e.stopPropagation();
+  const closeFile = (e: React.MouseEvent | null, file: string) => {
+    if (e) e.stopPropagation();
     const newOpen = openFiles.filter(f => f !== file);
     setOpenFiles(newOpen);
     if (deletedOpenFiles.includes(file)) {
@@ -117,6 +117,28 @@ export function AppLayout({ children }: AppLayoutProps) {
       setActiveFile(newOpen.length > 0 ? newOpen[newOpen.length - 1] : null);
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'Tab') {
+        e.preventDefault();
+        if (openFiles.length > 1) {
+          const currentIndex = openFiles.indexOf(activeFile || '');
+          const nextIndex = e.shiftKey 
+            ? (currentIndex - 1 + openFiles.length) % openFiles.length 
+            : (currentIndex + 1) % openFiles.length;
+          setActiveFile(openFiles[nextIndex]);
+        }
+      } else if (e.ctrlKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        if (activeFile) {
+          closeFile(null, activeFile);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [openFiles, activeFile]);
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-zinc-950 text-zinc-50 dark selection:bg-emerald-500/30 font-sans">
