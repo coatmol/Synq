@@ -1,6 +1,25 @@
 import { Modal, Button, TextField, Label, Input, Description, Switch } from "@heroui/react";
+import { useEffect, useState } from "react";
+import { api } from "../api";
 
 export function SettingsModal() {
+  const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    api.getSettings().then(settings => {
+      if (settings) {
+        setUsername(settings.username);
+      }
+    });
+  }, []);
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUsername(e.target.value);
+  };
+
+  const handleSave = () => {
+    api.updateSettings({ username });
+  };
   return (
     <Modal>
       <Button variant="secondary" className="h-8 w-8 p-0 min-w-0 bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 border-none transition-all rounded-md">
@@ -24,7 +43,7 @@ export function SettingsModal() {
             <Modal.Body className="flex flex-col gap-6 p-6 bg-zinc-900">
               <TextField>
                 <Label className="text-sm font-medium text-zinc-300 mb-1">Display Name</Label>
-                <Input defaultValue="Username" className="bg-zinc-950 border-zinc-800 focus:border-emerald-500 transition-colors" />
+                <Input value={username} onChange={handleUsernameChange} className="bg-zinc-950 border-zinc-800 focus:border-emerald-500 transition-colors" />
                 <Description className="text-xs text-zinc-500 mt-1.5">This name will be broadcasted to peers on the local network.</Description>
               </TextField>
 
@@ -48,7 +67,7 @@ export function SettingsModal() {
             </Modal.Body>
             <Modal.Footer className="border-t border-zinc-800 p-4 bg-zinc-900/50 flex justify-end">
               <Modal.CloseTrigger>
-                <Button className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-medium border-none transition-colors px-6">Done</Button>
+                <Button onPress={handleSave} className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-medium border-none transition-colors px-6">Done</Button>
               </Modal.CloseTrigger>
             </Modal.Footer>
           </Modal.Dialog>

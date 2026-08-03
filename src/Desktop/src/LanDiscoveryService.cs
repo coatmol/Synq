@@ -11,13 +11,18 @@ namespace Desktop;
 public class LanDiscoveryService : IDisposable
 {
     private readonly DocumentManager _manager;
+    private readonly SyncManager _syncManager;
+    private readonly WorkspaceState _workspaceState;
     private MulticastService? _mdns;
     private ServiceDiscovery? _serviceDiscovery;
+    private ServiceProfile? _serviceProfile;
     public int Port { get; private set; }
 
-    public LanDiscoveryService(DocumentManager manager)
+    public LanDiscoveryService(DocumentManager manager, SyncManager syncManager, WorkspaceState workspaceState)
     {
         _manager = manager;
+        _syncManager = syncManager;
+        _workspaceState = workspaceState;
     }
 
     public void BroadcastQuery()
@@ -31,8 +36,8 @@ public class LanDiscoveryService : IDisposable
         _mdns = new MulticastService();
         _serviceDiscovery = new ServiceDiscovery(_mdns);
 
-        var instanceName = $"{Environment.MachineName}-{httpPort}";
-        var service = new ServiceProfile(instanceName, "_synq._tcp", (ushort)httpPort);
+        var instanceName = $"{_workspaceState.Settings.Username}-{httpPort}";
+        _serviceProfile = new ServiceProfile(instanceName, "_synq._tcp", (ushort)httpPort);
         
         _mdns.NetworkInterfaceDiscovered += (s, e) => _mdns.SendQuery("_synq._tcp.local", type: DnsType.PTR);
         
@@ -53,13 +58,33 @@ public class LanDiscoveryService : IDisposable
             }
         };
 
-        _serviceDiscovery.Advertise(service);
         _mdns.Start();
+        _serviceDiscovery.Advertise(_serviceProfile);
+    }
+
+    public void UpdateUsername(string newUsername)
+    {
+        if (_serviceProfile != null && _serviceDiscovery != null)
+        {
+            _serviceDiscovery.Unadvertise(_serviceProfile);
+            _serviceProfile = new ServiceProfile($"{newUsername}-{Port}", "_synq._tcp", (ushort)Port);
+            _serviceDiscovery.Advertise(_serviceProfile);
+        }
+    }
+
+    public void Stop()
+    {
+        if (_serviceProfile != null && _serviceDiscovery != null)
+        {
+            _serviceDiscovery.Unadvertise(_serviceProfile);
+        }
+        _mdns?.Stop();
     }
 
     public void Dispose()
     {
-        _mdns?.Stop();
+        Stop();
+        _mdns?.Dispose();
     }
 
     private readonly Dictionary<string, (string IP, int Port)> _discoveredPeers = new();
@@ -84,14 +109,17 @@ public class LanDiscoveryService : IDisposable
         try
         {
             using var http = new HttpClient();
-            var response = await http.GetAsync($"http://{ip}:{port}/api/sync");
+            // Fetch remote manifest
+            var response = await http.GetAsync($"http://{ip}:{port}/api/sync/manifest");
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var data = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(content);
-                if (data != null)
+                var remoteManifest = System.Text.Json.JsonSerializer.Deserialize<SyncManifest>(content);
+                
+                if (remoteManifest != null)
                 {
-                    _manager.OverwriteFromSync(data);
+                    // Process manifest diffs locally
+                    await _syncManager.ProcessRemoteManifest(remoteManifest, $"http://{ip}:{port}");
                     
                     // Stop any existing connection
                     if (PeerConnection != null) await PeerConnection.StopAsync();

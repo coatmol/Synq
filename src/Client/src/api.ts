@@ -85,5 +85,31 @@ export const api = {
       console.error("Failed to fetch share info", e);
     }
     return null;
+  },
+
+  getSettings: async (): Promise<{ username: string, recentFolders: string[] } | null> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/settings`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (e) {
+      console.error("Failed to fetch settings", e);
+    }
+    return null;
+  },
+
+  updateSettings: async (settings: { username: string }): Promise<boolean> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings)
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to update settings", e);
+      return false;
+    }
   }
 };

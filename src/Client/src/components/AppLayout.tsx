@@ -130,7 +130,8 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const [treeOpen, setTreeOpen] = useState(true);
   const [files, setFiles] = useState<string[]>([]);
-  const { activeFile, setActiveFile } = useDocumentStore();
+  const [peers, setPeers] = useState<any[]>([]);
+  const { activeFile, setActiveFile, isConnected, documentStats } = useDocumentStore();
   const { fetchDocument } = useDocumentHub();
 
   const fetchFiles = async () => {
@@ -138,9 +139,18 @@ export function AppLayout({ children }: AppLayoutProps) {
     setFiles(fetchedFiles);
   };
 
+  const fetchPeers = async () => {
+    const fetchedPeers = await api.getPeers();
+    setPeers(fetchedPeers);
+  };
+
   useEffect(() => {
     fetchFiles();
-    const interval = setInterval(fetchFiles, 3000);
+    fetchPeers();
+    const interval = setInterval(() => {
+      fetchFiles();
+      fetchPeers();
+    }, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -236,23 +246,23 @@ export function AppLayout({ children }: AppLayoutProps) {
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2 group cursor-pointer hover:text-zinc-300 transition-colors">
             <div className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${isConnected ? 'animate-ping bg-emerald-400' : 'bg-red-400'}`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
             </div>
-            SignalR Connected
+            {isConnected ? 'SignalR Connected' : 'Disconnected'}
           </div>
           <div className="flex items-center gap-1.5 hover:text-zinc-300 transition-colors cursor-pointer">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
-            3 Peers Online
+            {peers.filter(p => p.status === 'online').length} Peers Online
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="hover:text-zinc-300 transition-colors">Ln 12, Col 42</div>
+          <div className="hover:text-zinc-300 transition-colors">Ln {documentStats.line}, Col {documentStats.col}</div>
           <div className="w-px h-3 bg-zinc-800"></div>
-          <div className="hover:text-zinc-300 transition-colors">1,204 Words</div>
-          <div className="hover:text-zinc-300 transition-colors">8,401 Chars</div>
+          <div className="hover:text-zinc-300 transition-colors">{documentStats.words.toLocaleString()} Words</div>
+          <div className="hover:text-zinc-300 transition-colors">{documentStats.chars.toLocaleString()} Chars</div>
         </div>
       </footer>
     </div>

@@ -9,6 +9,16 @@ interface WelcomeScreenProps {
 export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
   const [showPeers, setShowPeers] = useState(false);
   const [peers, setPeers] = useState<any[]>([]);
+  const [recentFolders, setRecentFolders] = useState<string[]>([]);
+  const [pendingPeer, setPendingPeer] = useState<{ ip: string, port: number, name: string } | null>(null);
+
+  useEffect(() => {
+    api.getSettings().then(settings => {
+      if (settings && settings.recentFolders) {
+        setRecentFolders(settings.recentFolders);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (!showPeers) return;
@@ -28,6 +38,11 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
       if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
         (window as any).external.sendMessage(JSON.stringify({ action: "openFolder" }));
       }
+      
+      if (pendingPeer) {
+        // Queue the connection right after the folder is picked
+        await api.connectPeer(pendingPeer.ip, pendingPeer.port);
+      }
       onOpenEditor();
     } catch (e) {
       console.error(e);
@@ -35,18 +50,18 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
     }
   };
 
-  const handleConnectToPeer = async (ip: string, port: number) => {
-    try {
-      const success = await api.connectPeer(ip, port);
-      if (success) {
-        onOpenEditor();
-      } else {
-        alert("Failed to connect to peer");
-      }
-    } catch (e) {
-      console.error("Connection failed", e);
+  const handleOpenRecent = async (path: string) => {
+    if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
+      (window as any).external.sendMessage(JSON.stringify({ action: "openRecent", path }));
     }
+    
+    if (pendingPeer) {
+      await api.connectPeer(pendingPeer.ip, pendingPeer.port);
+    }
+    onOpenEditor();
   };
+
+
 
   return (
     <div 
@@ -57,22 +72,83 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
       >
         <div className="flex flex-col items-center gap-4 text-center">
           <h1 className="text-3xl font-light tracking-tight text-white">
-            Welcome to <span className="font-semibold text-emerald-400">Synq</span>
+            {pendingPeer ? "Sync Destination" : (
+              <>Welcome to <span className="font-semibold text-emerald-400">Synq</span></>
+            )}
           </h1>
           <p className="text-zinc-500 text-sm">
-            {showPeers 
-              ? "Select a remote peer to connect and sync with." 
-              : "Get started by opening a local folder or connecting to a remote peer to collaborate in real-time."}
+            {pendingPeer 
+              ? `Select a local folder to synchronize with ${pendingPeer.name}.`
+              : showPeers 
+                ? "Select a remote peer to connect and sync with." 
+                : "Get started by opening a local folder or connecting to a remote peer to collaborate in real-time."}
           </p>
         </div>
 
-        {!showPeers ? (
+        {pendingPeer ? (
           <div className="flex flex-col w-full gap-3 mt-4">
+            
+            {recentFolders.length > 0 && (
+              <div className="flex flex-col w-full gap-2 mb-4">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Recent Workspaces</span>
+                {recentFolders.map((folder, i) => (
+                  <Button 
+                    key={i}
+                    onPress={() => handleOpenRecent(folder)}
+                    variant="ghost"
+                    className="w-full justify-start text-left bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 font-mono text-xs py-3 h-auto rounded-lg border border-zinc-800/50 transition-all truncate"
+                  >
+                    <svg className="w-4 h-4 mr-2 shrink-0 text-emerald-500/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                    <span className="truncate">{folder}</span>
+                  </Button>
+                ))}
+              </div>
+            )}
+
             <Button 
               onPress={handleNewProject}
               className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-medium py-6 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all"
             >
-              Open Folder
+              Browse Local Folder
+            </Button>
+
+            <Button 
+              onPress={() => setPendingPeer(null)}
+              variant="ghost"
+              className="w-full text-zinc-500 mt-2 hover:bg-zinc-800 border-none"
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : !showPeers ? (
+          <div className="flex flex-col w-full gap-3 mt-4">
+            
+            {recentFolders.length > 0 && (
+              <div className="flex flex-col w-full gap-2 mb-4">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Recent Workspaces</span>
+                {recentFolders.map((folder, i) => (
+                  <Button 
+                    key={i}
+                    onPress={() => handleOpenRecent(folder)}
+                    variant="ghost"
+                    className="w-full justify-start text-left bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 font-mono text-xs py-3 h-auto rounded-lg border border-zinc-800/50 transition-all truncate"
+                  >
+                    <svg className="w-4 h-4 mr-2 shrink-0 text-emerald-500/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                    <span className="truncate">{folder}</span>
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            <Button 
+              onPress={handleNewProject}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-medium py-6 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all"
+            >
+              Browse Local Folder
             </Button>
             
             <Button 
@@ -99,7 +175,7 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
                 peers.map(peer => (
                   <div 
                     key={peer.id}
-                    onClick={() => handleConnectToPeer(peer.ip, peer.port)}
+                    onClick={() => setPendingPeer({ ip: peer.ip, port: peer.port, name: peer.name })}
                     className={`flex items-center gap-4 p-3 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 hover:border-emerald-500/50 transition-all cursor-pointer group ${peer.status === 'offline' ? 'opacity-50 grayscale' : ''}`}
                   >
                     <div className="relative">

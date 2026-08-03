@@ -1,5 +1,4 @@
 import { Avatar, Tooltip } from "@heroui/react";
-import { ConnectModal } from "./ConnectModal";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 
@@ -43,10 +42,6 @@ export function LanPeersPanel() {
             </Tooltip.Content>
           </Tooltip>
         ))}
-      </div>
-      
-      <div className="flex items-center">
-        <ConnectModal />
       </div>
     </div>
   );

@@ -16,9 +16,9 @@ internal class Program
             WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot")
         });
 
-        // Register Core State and Background Network Service
         builder.Services.AddSingleton<WorkspaceState>();
         builder.Services.AddSingleton<DocumentManager>();
+        builder.Services.AddSingleton<SyncManager>();
         builder.Services.AddSingleton<LanDiscoveryService>();
 
         builder.Services.AddCors(options =>
@@ -40,9 +40,33 @@ internal class Program
         app.MapGet("/api/document", (string filename, DocumentManager manager) => 
             Results.Ok(new { text = manager.GetOrCreateDocument(filename).ToString() }));
 
-        app.MapGet("/api/sync", (DocumentManager manager) => {
-            manager.LoadAllFromDisk();
-            return Results.Ok(manager.GetAllFilesContent());
+        app.MapGet("/api/sync/manifest", (SyncManager sync) => {
+            return Results.Ok(sync.InitializeLocalFolder());
+        });
+
+        app.MapGet("/api/rawfile", (string filename, WorkspaceState state) => {
+            var path = Path.Combine(state.CurrentFolder, filename);
+            if (File.Exists(path))
+            {
+                return Results.Text(File.ReadAllText(path));
+            }
+            return Results.NotFound();
+        });
+
+        app.MapPost("/api/rawfile", async (HttpRequest req, WorkspaceState state, DocumentManager docManager, SyncManager sync) => {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = System.Text.Json.JsonDocument.Parse(body);
+            var filename = data.RootElement.GetProperty("filename").GetString();
+            var content = data.RootElement.GetProperty("content").GetString();
+            
+            var path = Path.Combine(state.CurrentFolder, filename!);
+            await File.WriteAllTextAsync(path, content);
+            docManager.GetOrCreateDocument(filename!);
+            
+            // Re-init local folder to update hashes
+            sync.InitializeLocalFolder();
+            return Results.Ok();
         });
 
         // File System REST Routes
@@ -104,6 +128,22 @@ internal class Program
                 .ToList();
             ips.Add("127.0.0.1"); // Always include localhost for testing
             return Results.Ok(new { ips = ips.Distinct(), port = discovery.Port });
+        });
+
+        app.MapGet("/api/settings", (WorkspaceState state) => {
+            return Results.Ok(state.Settings);
+        });
+
+        app.MapPost("/api/settings", async (HttpRequest req, WorkspaceState state) => {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = System.Text.Json.JsonDocument.Parse(body);
+            if (data.RootElement.TryGetProperty("username", out var usernameEl))
+            {
+                state.Settings.Username = usernameEl.GetString()!;
+                state.SaveSettings();
+            }
+            return Results.Ok();
         });
 
         // If the user navigates to a route (like /settings), serve index.html
@@ -178,21 +218,29 @@ internal class Program
                         {
                             var state = app.Services.GetRequiredService<WorkspaceState>();
                             state.CurrentFolder = paths[0];
+                            win.SendWebMessage("folderOpened");
+                        }
+                        break;
+                    case "openRecent":
+                        var recentPath = msg.RootElement.GetProperty("path").GetString();
+                        if (!string.IsNullOrEmpty(recentPath) && Directory.Exists(recentPath))
+                        {
+                            var state = app.Services.GetRequiredService<WorkspaceState>();
+                            state.CurrentFolder = recentPath;
+                            win.SendWebMessage("folderOpened");
+                        }
+                        else
+                        {
+                            win.SendWebMessage("folderError");
                         }
                         break;
                     case "connectPeer":
-                        var pathsPeer = win.ShowOpenFolder();
-                        if (pathsPeer != null && pathsPeer.Length > 0)
-                        {
-                            var state = app.Services.GetRequiredService<WorkspaceState>();
-                            state.CurrentFolder = pathsPeer[0];
-                            var ip = msg.RootElement.GetProperty("ip").GetString();
-                            var port = msg.RootElement.GetProperty("port").GetInt32();
-                            var discovery = app.Services.GetRequiredService<LanDiscoveryService>();
-                            var hubContext = app.Services.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub>>();
-                            Task.Run(() => discovery.ConnectToPeerAsync(ip!, port, hubContext));
-                            win.SendWebMessage("connectSuccess");
-                        }
+                        var ip = msg.RootElement.GetProperty("ip").GetString();
+                        var port = msg.RootElement.GetProperty("port").GetInt32();
+                        var discovery = app.Services.GetRequiredService<LanDiscoveryService>();
+                        var hubContext = app.Services.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub>>();
+                        Task.Run(() => discovery.ConnectToPeerAsync(ip!, port, hubContext));
+                        win.SendWebMessage("connectSuccess");
                         break;
                 }
             }
@@ -217,6 +265,7 @@ internal class Program
 
         window.WindowClosing += (sender, e) =>
         {
+            discoveryService.Stop();
             app.StopAsync().GetAwaiter().GetResult();
             return false;
         };

@@ -10,6 +10,8 @@ interface DocumentState {
   setText: (text: string) => void;
   isConnected: boolean;
   setIsConnected: (status: boolean) => void;
+  documentStats: { words: number; chars: number; line: number; col: number };
+  setDocumentStats: (stats: { words: number; chars: number; line: number; col: number }) => void;
 }
 
 export const useDocumentStore = create<DocumentState>((set) => ({
@@ -19,6 +21,8 @@ export const useDocumentStore = create<DocumentState>((set) => ({
   setText: (text) => set({ text }),
   isConnected: false,
   setIsConnected: (status) => set({ isConnected: status }),
+  documentStats: { words: 0, chars: 0, line: 1, col: 1 },
+  setDocumentStats: (stats) => set({ documentStats: stats }),
 }));
 
 export function useDocumentHub() {
