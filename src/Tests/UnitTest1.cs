@@ -31,7 +31,7 @@ public class Tests
 
         sequence.LocalDelete(11);
         sequence.RemoteMerge(
-            new CharNode(new PositionIdentifier([60], "Peer A", 11), 'd')
+            new CharNode(new PositionIdentifier([120000], "Peer A", 11), 'd')
                 { IsDeleted = false });
 
         Assert.AreEqual("Hello, Worl!", sequence.ToString());

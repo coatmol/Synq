@@ -130,13 +130,17 @@ public class SyncManager
             var hash = item.IsDirectory ? "dir" : ComputeHash(item.AbsPath);
 
             var entryPair = manifest.Files.FirstOrDefault(x => x.Value.RelativePath == relPath);
+            var itemLastWrite = item.IsDirectory
+                ? new DateTimeOffset(Directory.GetLastWriteTimeUtc(item.AbsPath)).ToUnixTimeMilliseconds()
+                : new DateTimeOffset(File.GetLastWriteTimeUtc(item.AbsPath)).ToUnixTimeMilliseconds();
+
             if (entryPair.Key != null) // Exists in manifest
             {
                 var entry = entryPair.Value;
                 if (entry.ContentHash != hash || entry.IsTombstone || entry.IsDirectory != item.IsDirectory)
                 {
                     entry.ContentHash = hash;
-                    entry.UpdatedAt = now;
+                    entry.UpdatedAt = itemLastWrite;
                     entry.IsTombstone = false;
                     entry.IsDirectory = item.IsDirectory;
                 }
@@ -149,7 +153,7 @@ public class SyncManager
                 {
                     RelativePath = relPath,
                     ContentHash = hash,
-                    UpdatedAt = now,
+                    UpdatedAt = itemLastWrite,
                     IsTombstone = false,
                     IsDirectory = item.IsDirectory
                 };
@@ -211,7 +215,7 @@ public class SyncManager
                         await FetchAndSaveFile(http, peerBaseUrl, remoteEntry.RelativePath, remoteEntry.IsDirectory);
                         localEntry.IsTombstone = false;
                         localEntry.ContentHash = remoteEntry.ContentHash;
-                        localEntry.UpdatedAt = now;
+                        localEntry.UpdatedAt = remoteEntry.UpdatedAt;
                     }
                 }
                 else if (!localEntry.IsTombstone && remoteEntry.IsTombstone)
@@ -223,7 +227,7 @@ public class SyncManager
                         else if (!localEntry.IsDirectory && File.Exists(filePath)) File.Delete(filePath);
 
                         localEntry.IsTombstone = true;
-                        localEntry.UpdatedAt = now;
+                        localEntry.UpdatedAt = remoteEntry.UpdatedAt;
                     }
                     else
                     {
@@ -237,7 +241,7 @@ public class SyncManager
                     {
                         await FetchAndSaveFile(http, peerBaseUrl, remoteEntry.RelativePath, remoteEntry.IsDirectory);
                         localEntry.ContentHash = remoteEntry.ContentHash;
-                        localEntry.UpdatedAt = now;
+                        localEntry.UpdatedAt = remoteEntry.UpdatedAt;
                     }
                     else
                     {
@@ -259,7 +263,7 @@ public class SyncManager
                     {
                         RelativePath = remoteEntry.RelativePath,
                         ContentHash = remoteEntry.ContentHash,
-                        UpdatedAt = now,
+                        UpdatedAt = remoteEntry.UpdatedAt,
                         IsTombstone = false,
                         IsDirectory = remoteEntry.IsDirectory
                     };
