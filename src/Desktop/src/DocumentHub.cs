@@ -59,26 +59,25 @@ public class DocumentHub : Hub
     public async Task SyncNodes(string filename, List<CharNode> nodes)
     {
         var seq = _manager.GetOrCreateDocument(filename);
-        foreach (var node in nodes)
-        {
-            seq.RemoteMerge(node);
-        }
+        foreach (var node in nodes) seq.RemoteMerge(node);
         _manager.SaveToDisk(filename);
         await Clients.Others.SendAsync("DocumentUpdated", filename, seq.ToString());
         await Clients.Others.SendAsync("SyncNodes", filename, nodes);
     }
-    
+
     private async Task ForwardNodesToPeer(string filename, List<CharNode> nodes)
     {
         var httpContext = Context.GetHttpContext();
         if (httpContext == null) return;
         var discovery = httpContext.RequestServices.GetService<LanDiscoveryService>();
         if (discovery?.PeerConnection != null)
-        {
-            try {
+            try
+            {
                 await discovery.PeerConnection.SendAsync("SyncNodes", filename, nodes);
-            } catch { }
-        }
+            }
+            catch
+            {
+            }
     }
 
     public async Task ItemRenamed(string oldPath, string newPath)

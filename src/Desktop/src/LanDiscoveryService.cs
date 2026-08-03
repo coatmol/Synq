@@ -1,6 +1,4 @@
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
+using System.Text.Json;
 using Engine;
 using Makaretu.Dns;
 using Microsoft.AspNetCore.SignalR;
@@ -10,20 +8,32 @@ namespace Desktop;
 
 public class LanDiscoveryService : IDisposable
 {
+    private readonly Dictionary<string, (string IP, int Port)> _discoveredPeers = new();
     private readonly DocumentManager _manager;
     private readonly SyncManager _syncManager;
     private readonly WorkspaceState _workspaceState;
+    private bool _isAdvertising;
     private MulticastService? _mdns;
+    private Timer? _pingTimer;
     private ServiceDiscovery? _serviceDiscovery;
     private ServiceProfile? _serviceProfile;
-    private bool _isAdvertising = false;
-    public int Port { get; private set; }
 
     public LanDiscoveryService(DocumentManager manager, SyncManager syncManager, WorkspaceState workspaceState)
     {
         _manager = manager;
         _syncManager = syncManager;
         _workspaceState = workspaceState;
+    }
+
+    public int Port { get; private set; }
+
+    public HubConnection? PeerConnection { get; private set; }
+
+    public void Dispose()
+    {
+        Stop();
+        _pingTimer?.Dispose();
+        _mdns?.Dispose();
     }
 
     public void BroadcastQuery()
@@ -39,21 +49,23 @@ public class LanDiscoveryService : IDisposable
 
         var instanceName = $"{_workspaceState.Settings.Username}-{httpPort}";
         _serviceProfile = new ServiceProfile(instanceName, "_synq._tcp", (ushort)httpPort);
-        
+
         _mdns.NetworkInterfaceDiscovered += (s, e) => _mdns.SendQuery("_synq._tcp.local", type: DnsType.PTR);
-        
+
         _serviceDiscovery.ServiceInstanceDiscovered += (s, e) =>
         {
-            var aRecord = e.Message.Answers.OfType<ARecord>().FirstOrDefault() ?? e.Message.AdditionalRecords.OfType<ARecord>().FirstOrDefault();
-            var srvRecord = e.Message.Answers.OfType<SRVRecord>().FirstOrDefault() ?? e.Message.AdditionalRecords.OfType<SRVRecord>().FirstOrDefault();
-            
+            var aRecord = e.Message.Answers.OfType<ARecord>().FirstOrDefault() ??
+                          e.Message.AdditionalRecords.OfType<ARecord>().FirstOrDefault();
+            var srvRecord = e.Message.Answers.OfType<SRVRecord>().FirstOrDefault() ??
+                            e.Message.AdditionalRecords.OfType<SRVRecord>().FirstOrDefault();
+
             if (aRecord != null && srvRecord != null)
             {
                 var ipStr = aRecord.Address.ToString();
                 var port = srvRecord.Port;
                 // Ignore our own broadcast
                 if (port == httpPort) return;
-                
+
                 _discoveredPeers[e.ServiceInstanceName.ToString()] = (ipStr, port);
                 Console.WriteLine($"Discovered peer at {ipStr}:{port}");
             }
@@ -70,25 +82,18 @@ public class LanDiscoveryService : IDisposable
         var keys = _discoveredPeers.Keys.ToList();
         using var http = new HttpClient();
         http.Timeout = TimeSpan.FromSeconds(2);
-        
+
         foreach (var key in keys)
-        {
             if (_discoveredPeers.TryGetValue(key, out var peer))
-            {
                 try
                 {
                     var res = await http.GetAsync($"http://{peer.IP}:{peer.Port}/api/settings");
-                    if (!res.IsSuccessStatusCode)
-                    {
-                        _discoveredPeers.Remove(key);
-                    }
+                    if (!res.IsSuccessStatusCode) _discoveredPeers.Remove(key);
                 }
                 catch
                 {
                     _discoveredPeers.Remove(key);
                 }
-            }
-        }
     }
 
     public void UpdateUsername(string newUsername)
@@ -125,25 +130,13 @@ public class LanDiscoveryService : IDisposable
         _mdns?.Stop();
     }
 
-    public void Dispose()
-    {
-        Stop();
-        _pingTimer?.Dispose();
-        _mdns?.Dispose();
-    }
-
-    private readonly Dictionary<string, (string IP, int Port)> _discoveredPeers = new();
-    private Timer? _pingTimer;
-
     public IEnumerable<object> GetDiscoveredPeers()
     {
-        return _discoveredPeers.Select((kvp, index) => {
+        return _discoveredPeers.Select((kvp, index) =>
+        {
             var actualName = kvp.Key;
             var lastDash = kvp.Key.LastIndexOf("-");
-            if (lastDash > 0)
-            {
-                actualName = kvp.Key.Substring(0, lastDash);
-            }
+            if (lastDash > 0) actualName = kvp.Key.Substring(0, lastDash);
             return new
             {
                 id = index + 1,
@@ -156,8 +149,6 @@ public class LanDiscoveryService : IDisposable
         });
     }
 
-    public HubConnection? PeerConnection { get; private set; }
-
     public async Task DisconnectFromPeerAsync()
     {
         if (PeerConnection != null)
@@ -168,7 +159,7 @@ public class LanDiscoveryService : IDisposable
         }
     }
 
-    public async Task<bool> ConnectToPeerAsync(string ip, int port, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext)
+    public async Task<bool> ConnectToPeerAsync(string ip, int port, IHubContext<DocumentHub> hubContext)
     {
         try
         {
@@ -178,36 +169,34 @@ public class LanDiscoveryService : IDisposable
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var remoteManifest = System.Text.Json.JsonSerializer.Deserialize<SyncManifest>(content);
-                
+                var remoteManifest = JsonSerializer.Deserialize<SyncManifest>(content);
+
                 if (remoteManifest != null)
                 {
                     // Process manifest diffs locally
                     await _syncManager.ProcessRemoteManifest(remoteManifest, $"http://{ip}:{port}");
-                    
+
                     // Stop any existing connection
                     if (PeerConnection != null) await PeerConnection.StopAsync();
 
-                    PeerConnection = new Microsoft.AspNetCore.SignalR.Client.HubConnectionBuilder()
+                    PeerConnection = new HubConnectionBuilder()
                         .WithUrl($"http://{ip}:{port}/hub")
                         .WithAutomaticReconnect()
                         .Build();
-                        
+
                     PeerConnection.On<string, List<CharNode>>("SyncNodes", async (filename, nodes) =>
                     {
                         var seq = _manager.GetOrCreateDocument(filename);
-                        foreach (var node in nodes)
-                        {
-                            seq.RemoteMerge(node);
-                        }
+                        foreach (var node in nodes) seq.RemoteMerge(node);
                         _manager.SaveToDisk(filename);
                         await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, seq.ToString());
                     });
-                    
+
                     PeerConnection.On<string, string>("ItemRenamed", async (oldPath, newPath) =>
                     {
-                        var oldAbs = Path.Combine(_workspaceState.CurrentFolder, oldPath);
-                        var newAbs = Path.Combine(_workspaceState.CurrentFolder, newPath);
+                        var oldAbs = PathUtils.GetSafePath(_workspaceState.CurrentFolder, oldPath);
+                        var newAbs = PathUtils.GetSafePath(_workspaceState.CurrentFolder, newPath);
+                        if (oldAbs == null || newAbs == null) return;
                         if (File.Exists(oldAbs))
                         {
                             var dir = Path.GetDirectoryName(newAbs);
@@ -218,37 +207,42 @@ public class LanDiscoveryService : IDisposable
                         {
                             Directory.Move(oldAbs, newAbs);
                         }
+
                         _syncManager.InitializeLocalFolder();
                         await hubContext.Clients.All.SendAsync("ItemRenamed", oldPath, newPath);
                     });
 
-                    PeerConnection.On<string>("ItemDeleted", async (path) =>
+                    PeerConnection.On<string>("ItemDeleted", async path =>
                     {
-                        var filePath = Path.Combine(_workspaceState.CurrentFolder, path);
+                        var filePath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, path);
+                        if (filePath == null) return;
                         if (File.Exists(filePath)) File.Delete(filePath);
                         else if (Directory.Exists(filePath)) Directory.Delete(filePath, true);
                         _syncManager.InitializeLocalFolder();
                         await hubContext.Clients.All.SendAsync("ItemDeleted", path);
                     });
 
-                    PeerConnection.On<string>("FileCreated", async (filename) =>
+                    PeerConnection.On<string>("FileCreated", async filename =>
                     {
-                        var filePath = Path.Combine(_workspaceState.CurrentFolder, filename);
+                        var filePath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, filename);
+                        if (filePath == null) return;
                         var dir = Path.GetDirectoryName(filePath);
                         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                        if (!File.Exists(filePath)) await File.WriteAllTextAsync(filePath, "# " + Path.GetFileNameWithoutExtension(filename));
+                        if (!File.Exists(filePath))
+                            await File.WriteAllTextAsync(filePath, "# " + Path.GetFileNameWithoutExtension(filename));
                         _syncManager.InitializeLocalFolder();
                         await hubContext.Clients.All.SendAsync("FileCreated", filename);
                     });
 
-                    PeerConnection.On<string>("FolderCreated", async (path) =>
+                    PeerConnection.On<string>("FolderCreated", async path =>
                     {
-                        var dirPath = Path.Combine(_workspaceState.CurrentFolder, path);
+                        var dirPath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, path);
+                        if (dirPath == null) return;
                         if (!Directory.Exists(dirPath)) Directory.CreateDirectory(dirPath);
                         _syncManager.InitializeLocalFolder();
                         await hubContext.Clients.All.SendAsync("FolderCreated", path);
                     });
-                    
+
                     await PeerConnection.StartAsync();
                     return true;
                 }
@@ -258,6 +252,7 @@ public class LanDiscoveryService : IDisposable
         {
             Console.WriteLine($"P2P Sync failed: {ex.Message}");
         }
+
         return false;
     }
 }

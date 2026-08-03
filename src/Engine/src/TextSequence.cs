@@ -43,6 +43,7 @@ public class TextSequence
             newNodes.Add(LocalInsert(index, c));
             index++;
         }
+
         return newNodes;
     }
 
@@ -60,7 +61,7 @@ public class TextSequence
 
         var activeNode = activeNodes[index];
         activeNode.IsDeleted = true;
-        
+
         var nodeIndex = _nodes.FindIndex(n => n.Id.Equals(activeNode.Id));
         _nodes[nodeIndex] = activeNode;
         return activeNode;
@@ -69,11 +70,12 @@ public class TextSequence
     public List<CharNode> LocalDelete(int index, int length)
     {
         var deletedNodes = new List<CharNode>();
-        for (var i = length - 1; i >= 0; i--) 
+        for (var i = length - 1; i >= 0; i--)
         {
             var deleted = LocalDelete(index + i);
             if (deleted != null) deletedNodes.Add(deleted.Value);
         }
+
         return deletedNodes;
     }
 

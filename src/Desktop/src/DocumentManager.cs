@@ -1,13 +1,12 @@
 using Engine;
-using System.IO;
 
 namespace Desktop;
 
 public class DocumentManager
 {
-    private readonly WorkspaceState _state;
-    private readonly string _peerId;
     private readonly Dictionary<string, TextSequence> _documents = new();
+    private readonly string _peerId;
+    private readonly WorkspaceState _state;
 
     public DocumentManager(WorkspaceState state)
     {
@@ -22,13 +21,14 @@ public class DocumentManager
         doc = new TextSequence(_peerId);
         if (!string.IsNullOrEmpty(_state.CurrentFolder))
         {
-            var path = Path.Combine(_state.CurrentFolder, filename);
-            if (File.Exists(path))
+            var path = PathUtils.GetSafePath(_state.CurrentFolder, filename);
+            if (path != null && File.Exists(path))
             {
                 var content = File.ReadAllText(path);
                 if (!string.IsNullOrEmpty(content)) doc.LocalInsert(0, content);
             }
         }
+
         _documents[filename] = doc;
         return doc;
     }
@@ -38,8 +38,8 @@ public class DocumentManager
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return;
         if (_documents.TryGetValue(filename, out var doc))
         {
-            var path = Path.Combine(_state.CurrentFolder, filename);
-            File.WriteAllText(path, doc.ToString());
+            var path = PathUtils.GetSafePath(_state.CurrentFolder, filename);
+            if (path != null) File.WriteAllText(path, doc.ToString());
         }
     }
 

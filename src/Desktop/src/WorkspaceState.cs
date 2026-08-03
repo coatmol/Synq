@@ -10,22 +10,8 @@ public class AppSettings
 
 public class WorkspaceState
 {
-    private string _currentFolder;
-    public string CurrentFolder 
-    {
-        get => _currentFolder;
-        set
-        {
-            if (_currentFolder != value)
-            {
-                _currentFolder = value;
-                AddRecentFolder(value);
-            }
-        }
-    }
-
-    public AppSettings Settings { get; private set; } = new AppSettings();
     private readonly string _settingsFilePath;
+    private string _currentFolder;
 
     public WorkspaceState()
     {
@@ -52,10 +38,24 @@ public class WorkspaceState
         }
     }
 
+    public string CurrentFolder
+    {
+        get => _currentFolder;
+        set
+        {
+            if (_currentFolder != value)
+            {
+                _currentFolder = value;
+                AddRecentFolder(value);
+            }
+        }
+    }
+
+    public AppSettings Settings { get; private set; } = new();
+
     private void LoadSettings()
     {
         if (File.Exists(_settingsFilePath))
-        {
             try
             {
                 var json = File.ReadAllText(_settingsFilePath);
@@ -66,11 +66,8 @@ public class WorkspaceState
             {
                 Settings = new AppSettings();
             }
-        }
         else
-        {
             Settings = new AppSettings();
-        }
     }
 
     public void SaveSettings()
@@ -80,21 +77,20 @@ public class WorkspaceState
             var json = JsonSerializer.Serialize(Settings, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(_settingsFilePath, json);
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     public void AddRecentFolder(string folder)
     {
         if (string.IsNullOrEmpty(folder)) return;
-        
+
         Settings.RecentFolders.Remove(folder);
         Settings.RecentFolders.Insert(0, folder);
-        
-        if (Settings.RecentFolders.Count > 10)
-        {
-            Settings.RecentFolders = Settings.RecentFolders.Take(10).ToList();
-        }
-        
+
+        if (Settings.RecentFolders.Count > 10) Settings.RecentFolders = Settings.RecentFolders.Take(10).ToList();
+
         SaveSettings();
     }
 }
