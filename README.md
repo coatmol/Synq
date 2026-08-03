@@ -2,12 +2,16 @@
 
 > A high-performance, local-first markdown editor and peer-to-peer knowledge workspace with zero server dependencies.
 
+[![CI](https://github.com/coatmol/Synq/actions/workflows/ci.yml/badge.svg)](https://github.com/coatmol/Synq/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/coatmol/Synq/actions/workflows/codeql.yml/badge.svg)](https://github.com/coatmol/Synq/actions/workflows/codeql.yml)
+[![Windows](https://img.shields.io/github/actions/workflow/status/coatmol/Synq/release.yml?label=Windows&logo=windows)](https://github.com/coatmol/Synq/actions/workflows/release.yml)
+[![macOS](https://img.shields.io/github/actions/workflow/status/coatmol/Synq/release.yml?label=macOS&logo=apple)](https://github.com/coatmol/Synq/actions/workflows/release.yml)
+[![Linux](https://img.shields.io/github/actions/workflow/status/coatmol/Synq/release.yml?label=Linux&logo=linux)](https://github.com/coatmol/Synq/actions/workflows/release.yml)
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)
 ![React](https://img.shields.io/badge/React-19.0-61DAFB.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-7.0-3178C6.svg)
-[![CI](https://github.com/coatmol/Synq/actions/workflows/ci.yml/badge.svg)](https://github.com/coatmol/Synq/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/coatmol/Synq/actions/workflows/codeql.yml/badge.svg)](https://github.com/coatmol/Synq/actions/workflows/codeql.yml)
 
 **Synq** is a zero-trust, local-first markdown editor and personal knowledge base built for absolute data sovereignty. Designed for taking interconnected notes and managing large collections of markdown documents locally, Synq gives you full ownership over your thoughts in plain text—with zero telemetry, zero tracking, and no required accounts.
 
@@ -19,6 +23,8 @@ Instead of relying on a centralized database or cloud backend to resolve concurr
 
 * **Absolute Privacy & Data Sovereignty:** Your data is completely air-gapped from the cloud. No analytics, no telemetry, no mandatory sign-ups, and no middleman servers.
 * **Advanced Markdown Editor:** A frictionless, focused writing environment with robust support for markdown, bi-directional linking, and networked thought organization.
+* **Hierarchical File Management:** Full support for deeply nested folders, drag-and-drop organization, and a multi-tabbed interface for editing multiple documents concurrently.
+* **Native Context Operations:** Right-click context menus for renaming, deleting, and natively opening files directly within the OS explorer.
 * **Zero-Server Architecture:** No central database, backend API, or cloud service required. The client *is* the server.
 * **Deterministic Conflict Resolution:** Mathematical guarantees ensure all peers eventually converge on the exact same document state regardless of network latency, packet reordering, or offline duration.
 * **Offline-First Storage:** Local-first state persistence backed by a lightweight file-system database. You retain 100% ownership of your data offline.
