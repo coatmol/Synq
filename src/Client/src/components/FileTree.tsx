@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useDocumentStore } from '../hooks/useDocumentHub';
-import { Dropdown } from "@heroui/react";
+import { Dropdown, Modal, Button, Input } from "@heroui/react";
 import { Folder, FolderOpen, FileText, MoreVertical, Plus, FolderPlus } from 'lucide-react';
 
 interface TreeNode {
@@ -17,6 +17,9 @@ export function FileTree() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set([''])); // empty string is root
   const { setActiveFile, activeFile } = useDocumentStore();
   const [selectedFolder, setSelectedFolder] = useState<string>(''); // For new file/folder creation context
+  
+  const [modalState, setModalState] = useState<{ type: 'createFile' | 'createFolder' | 'rename' | 'delete' | null, node?: TreeNode }>({ type: null });
+  const [modalInput, setModalInput] = useState("");
 
   const fetchFiles = async () => {
     const data = await api.getFiles();
@@ -84,41 +87,54 @@ export function FileTree() {
     setExpandedFolders(newExpanded);
   };
 
-  const handleCreateFile = async () => {
-    let name = prompt("Enter new filename:");
-    if (!name) return;
-    if (!name.endsWith('.md')) name += '.md';
-    const path = selectedFolder ? `${selectedFolder}/${name}` : name;
-    await api.createFile(path);
-    fetchFiles();
+  const handleCreateFile = () => {
+    setModalInput("");
+    setModalState({ type: 'createFile' });
   };
 
-  const handleCreateFolder = async () => {
-    const name = prompt("Enter new folder name:");
-    if (!name) return;
-    const path = selectedFolder ? `${selectedFolder}/${name}` : name;
-    await api.createFolder(path);
-    fetchFiles();
+  const handleCreateFolder = () => {
+    setModalInput("");
+    setModalState({ type: 'createFolder' });
   };
 
-  const handleRename = async (node: TreeNode) => {
-    const newName = prompt("Enter new name:", node.name);
-    if (!newName || newName === node.name) return;
-    const basePath = node.path.substring(0, node.path.lastIndexOf('/'));
-    const newPath = basePath ? (basePath === node.path ? newName : `${basePath}/${newName}`) : newName;
-    await api.renameItem(node.path, newPath);
-    fetchFiles();
+  const handleRename = (node: TreeNode) => {
+    setModalInput(node.name);
+    setModalState({ type: 'rename', node });
   };
 
-  const handleDelete = async (node: TreeNode) => {
-    if (confirm(`Are you sure you want to delete ${node.name}?`)) {
+  const handleDelete = (node: TreeNode) => {
+    setModalState({ type: 'delete', node });
+  };
+
+  const handleModalSubmit = async () => {
+    const { type, node } = modalState;
+    if (type === 'createFile') {
+      let name = modalInput.trim();
+      if (!name) return;
+      if (!name.endsWith('.md')) name += '.md';
+      const path = selectedFolder ? `${selectedFolder}/${name}` : name;
+      await api.createFile(path);
+    } else if (type === 'createFolder') {
+      const name = modalInput.trim();
+      if (!name) return;
+      const path = selectedFolder ? `${selectedFolder}/${name}` : name;
+      await api.createFolder(path);
+    } else if (type === 'rename' && node) {
+      const newName = modalInput.trim();
+      if (!newName || newName === node.name) return;
+      const basePath = node.path.substring(0, node.path.lastIndexOf('/'));
+      const newPath = basePath ? (basePath === node.path ? newName : `${basePath}/${newName}`) : newName;
+      await api.renameItem(node.path, newPath);
+    } else if (type === 'delete' && node) {
       if (node.isFolder) {
         await api.deleteFolder(node.path);
       } else {
         await api.deleteFile(node.path);
       }
-      fetchFiles();
     }
+    
+    setModalState({ type: null });
+    fetchFiles();
   };
 
   const handleNativeOpen = async (node: TreeNode) => {
@@ -262,6 +278,48 @@ export function FileTree() {
           <div className="text-xs text-zinc-600 px-2 italic mt-2">No files found.</div>
         )}
       </div>
+
+      <Modal isOpen={modalState.type !== null} onOpenChange={(open) => !open && setModalState({ type: null })}>
+        <Modal.Backdrop className="bg-black/60 backdrop-blur-sm">
+          <Modal.Container>
+            <Modal.Dialog className="bg-zinc-900 border border-zinc-800 shadow-2xl rounded-xl overflow-hidden w-full max-w-sm">
+            <Modal.Header className="border-b border-zinc-800 bg-zinc-900/50 p-4 pb-3">
+              <Modal.Heading className="text-sm font-semibold text-zinc-100">
+                {modalState.type === 'createFile' && 'Create File'}
+                {modalState.type === 'createFolder' && 'Create Folder'}
+                {modalState.type === 'rename' && 'Rename'}
+                {modalState.type === 'delete' && 'Delete Item'}
+              </Modal.Heading>
+            </Modal.Header>
+            <Modal.Body className="p-4 py-5">
+              {modalState.type === 'delete' ? (
+                <p className="text-sm text-zinc-300">Are you sure you want to delete <span className="font-semibold text-red-400">{modalState.node?.name}</span>?</p>
+              ) : (
+                <Input
+                  autoFocus
+                  value={modalInput}
+                  onChange={(e) => setModalInput(e.target.value)}
+                  placeholder={modalState.type === 'createFolder' ? "Folder name" : "Filename"}
+                  className="bg-zinc-800 text-zinc-100 text-sm border-zinc-700 hover:border-emerald-500/50 focus-within:!border-emerald-500 rounded-md px-3 py-1.5 w-full"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleModalSubmit();
+                  }}
+                />
+              )}
+            </Modal.Body>
+            <Modal.Footer className="border-t border-zinc-800 p-3 flex justify-end gap-2 bg-zinc-900/30">
+              <Button onPress={() => setModalState({ type: null })} variant="ghost" className="text-zinc-400 hover:text-zinc-100 h-8 text-xs font-medium px-4">Cancel</Button>
+              <Button 
+                onPress={handleModalSubmit} 
+                className={`h-8 text-xs font-medium px-4 text-white shadow-md ${modalState.type === 'delete' ? 'bg-red-500/90 hover:bg-red-500' : 'bg-emerald-600/90 hover:bg-emerald-600'}`}
+              >
+                {modalState.type === 'delete' ? 'Delete' : 'Confirm'}
+              </Button>
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
     </div>
   );
 }
