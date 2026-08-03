@@ -11,6 +11,35 @@ public static class ApiEndpoints
 {
     public static void MapAll(WebApplication app)
     {
+        app.Use(async (context, next) =>
+        {
+            var state = context.RequestServices.GetRequiredService<WorkspaceState>();
+            if (!string.IsNullOrEmpty(state.Settings.Password))
+            {
+                var isLocal = context.Connection.RemoteIpAddress == null || 
+                              IPAddress.IsLoopback(context.Connection.RemoteIpAddress) || 
+                              context.Connection.RemoteIpAddress.ToString() == context.Connection.LocalIpAddress?.ToString();
+                              
+                var isExcluded = context.Request.Path.StartsWithSegments("/api/settings") && context.Request.Method == "GET";
+                
+                if (!isLocal && !isExcluded)
+                {
+                    var token = "";
+                    if (context.Request.Headers.TryGetValue("Authorization", out var authHeader) && authHeader.ToString().StartsWith("Bearer "))
+                        token = authHeader.ToString().Substring(7);
+                    else if (context.Request.Query.TryGetValue("access_token", out var queryToken))
+                        token = queryToken.ToString();
+
+                    if (token != state.Settings.Password)
+                    {
+                        context.Response.StatusCode = 401;
+                        return;
+                    }
+                }
+            }
+            await next();
+        });
+
         app.MapHub<DocumentHub>("/hub");
 
         app.MapGet("/api/document", (string filename, DocumentManager manager) =>
@@ -218,6 +247,28 @@ public static class ApiEndpoints
                 var success = await discovery.ConnectToPeerAsync(ip!, port, hubContext);
                 return success ? Results.Ok() : Results.BadRequest();
             });
+            
+        app.MapPost("/api/peers/manual", async (HttpRequest req, LanDiscoveryService discovery, WorkspaceState state, IHubContext<DocumentHub> hubContext) => 
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonDocument.Parse(body);
+            var ip = data.RootElement.GetProperty("ip").GetString();
+            var port = data.RootElement.GetProperty("port").GetInt32();
+            
+            var password = "";
+            if (data.RootElement.TryGetProperty("password", out var pwdEl))
+                password = pwdEl.GetString() ?? "";
+                
+            if (!string.IsNullOrEmpty(password)) 
+            {
+                state.Settings.PeerPasswords[$"{ip}:{port}"] = password;
+                state.SaveSettings();
+            }
+            
+            var success = await discovery.ConnectToPeerAsync(ip!, port, hubContext);
+            return success ? Results.Ok() : Results.BadRequest();
+        });
 
         app.MapGet("/api/share", (LanDiscoveryService discovery) =>
         {
@@ -241,8 +292,12 @@ public static class ApiEndpoints
             if (data.RootElement.TryGetProperty("username", out var usernameEl))
             {
                 state.Settings.Username = usernameEl.GetString()!;
-                state.SaveSettings();
             }
+            if (data.RootElement.TryGetProperty("password", out var passwordEl))
+            {
+                state.Settings.Password = passwordEl.GetString() ?? "";
+            }
+            state.SaveSettings();
 
             return Results.Ok();
         });

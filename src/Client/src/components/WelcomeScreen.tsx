@@ -37,13 +37,19 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
     try {
       if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
         (window as any).external.sendMessage(JSON.stringify({ action: "openFolder" }));
+      } else {
+        // Fallback for web browser testing
+        onOpenEditor();
       }
       
       if (pendingPeer) {
         // Queue the connection right after the folder is picked
-        await api.connectPeer(pendingPeer.ip, pendingPeer.port);
+        await api.connectManualPeer({ ip: pendingPeer.ip, port: pendingPeer.port });
       }
-      onOpenEditor();
+      // Note: We intentionally do not call onOpenEditor() here if in native app!
+      // The native backend will pop a blocking folder picker dialog.
+      // Once the user selects a folder, the backend sends a "folderOpened" web message.
+      // App.tsx intercepts that message and switches the view.
     } catch (e) {
       console.error(e);
       onOpenEditor();
@@ -53,12 +59,14 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
   const handleOpenRecent = async (path: string) => {
     if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
       (window as any).external.sendMessage(JSON.stringify({ action: "openRecent", path }));
+    } else {
+      onOpenEditor();
     }
     
     if (pendingPeer) {
-      await api.connectPeer(pendingPeer.ip, pendingPeer.port);
+      await api.connectManualPeer({ ip: pendingPeer.ip, port: pendingPeer.port });
     }
-    onOpenEditor();
+    // Similar to handleNewProject, we wait for "folderOpened" message which will trigger reload in native mode
   };
 
 

@@ -143,6 +143,20 @@ export const api = {
     });
   },
 
+  connectManualPeer: async (peer: { ip: string, port: number, password?: string }): Promise<boolean> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/peers/manual`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(peer)
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to connect manual peer", e);
+      return false;
+    }
+  },
+
   getShareInfo: async (): Promise<{ ips: string[], port: number } | null> => {
     try {
       const response = await fetch(`${BASE_URL}/api/share`);
@@ -155,7 +169,7 @@ export const api = {
     return null;
   },
 
-  getSettings: async (): Promise<{ username: string, recentFolders: string[] } | null> => {
+  getSettings: async (): Promise<{ username: string, password?: string, recentFolders: string[] } | null> => {
     try {
       const response = await fetch(`${BASE_URL}/api/settings`);
       if (response.ok) {
@@ -167,7 +181,7 @@ export const api = {
     return null;
   },
 
-  updateSettings: async (settings: { username: string }): Promise<boolean> => {
+  updateSettings: async (settings: { username: string, password?: string }): Promise<boolean> => {
     try {
       const response = await fetch(`${BASE_URL}/api/settings`, {
         method: "POST",

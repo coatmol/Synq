@@ -178,6 +178,13 @@ public class SyncManager
             .Distinct();
 
         using var http = new HttpClient();
+        if (Uri.TryCreate(peerBaseUrl, UriKind.Absolute, out var uri))
+        {
+            if (_state.Settings.PeerPasswords.TryGetValue($"{uri.Host}:{uri.Port}", out var pwd))
+            {
+                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", pwd);
+            }
+        }
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         foreach (var path in allPaths)

@@ -7,9 +7,10 @@ export function ConnectModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [ip, setIp] = useState("");
   const [port, setPort] = useState("5000");
+  const [password, setPassword] = useState("");
 
   const handleConnect = async () => {
-    const success = await api.connectPeer(ip, parseInt(port, 10));
+    const success = await api.connectManualPeer({ ip, port: parseInt(port, 10), password: password || undefined });
     if (success) {
       toast.success("Connected", {
         description: `Successfully connected to peer at ${ip}:${port}`
@@ -24,8 +25,8 @@ export function ConnectModal() {
 
   return (
     <>
-      <Button onPress={() => setIsOpen(true)} variant="secondary" className="w-full text-xs font-medium bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/50 transition-all" size="sm">
-        Manual Connect
+      <Button onPress={() => setIsOpen(true)} variant="secondary" className="text-xs font-medium bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/50 transition-all px-3 h-7 rounded-md shadow-sm" size="sm">
+        Connect via IP
       </Button>
       <Modal isOpen={isOpen} onOpenChange={setIsOpen}>
         <Modal.Backdrop className="bg-black/60 backdrop-blur-sm">
@@ -49,6 +50,11 @@ export function ConnectModal() {
                 <Label className="text-zinc-300 font-medium mb-1">Port</Label>
                 <Input value={port} onChange={(e) => setPort(e.target.value)} placeholder="5000" className="bg-zinc-950 border-zinc-800 focus:border-emerald-500" />
                 <Description className="text-xs text-zinc-500 mt-1">Default is 5000 for Synq clients.</Description>
+              </TextField>
+
+              <TextField>
+                <Label className="text-zinc-300 font-medium mb-1">Password (Optional)</Label>
+                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="" className="bg-zinc-950 border-zinc-800 focus:border-emerald-500" />
               </TextField>
             </Modal.Body>
             <Modal.Footer className="border-t border-zinc-800 p-4 bg-zinc-900/50 flex justify-end gap-3">

@@ -62,19 +62,21 @@ dotnet run --project src/Desktop
 ### 2. Headless Server (For Homelabs)
 A persistent, always-on peer designed specifically for the self-hosting and homelab community. It runs the exact same P2P CRDT sync engine as the desktop client, but without any graphical interface. By running this on a NAS, Raspberry Pi, or home server, you guarantee that your notes have a 24/7 backup target and a highly-available network node. 
 
-> **Important Security Disclaimer (Temporary):** The Synq engine is strictly local-first and expects to run on trusted local area networks (LAN, WireGuard, Tailscale). The API currently has **no authentication**. Do not expose the headless server to the public internet!
-
 - **Via Docker (Recommended for Servers):**
-  Synq Server is fully containerized. For the mDNS auto-discovery to work properly on your local network, you should run the container using host networking.
+  Synq Server is fully containerized. To host an always-on Synq peer using Docker (via GitHub Container Registry), you can run:
 
 ```bash
 docker run -d \
   --name synq-server \
   --network host \
-  -v /path/to/your/notes:/data \
+  -v ~/synq-vault/:/data \
+  -e folder=/data \
   -e port=5000 \
+  -e password="your_optional_secure_password" \
   ghcr.io/coatmol/synq:latest
 ```
+
+*(Note: `network host` is highly recommended so that mDNS discovery functions properly on your local network. The `password` variable is optional but highly recommended if you plan on exposing your server port to the wider network.)*
 
 - **Pre-compiled Binaries:** Download the `Synq-Server-*` `.zip` from the [Releases page](https://github.com/coatmol/Synq/releases).
 - **From Source:**

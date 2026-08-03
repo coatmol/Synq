@@ -7,11 +7,15 @@ import { toast } from "sonner";
 export function SettingsModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     api.getSettings().then(settings => {
       if (settings) {
         setUsername(settings.username);
+        if (settings.password) {
+          setPassword(settings.password);
+        }
       }
     });
   }, []);
@@ -20,8 +24,12 @@ export function SettingsModal() {
     setUsername(e.target.value);
   };
 
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+  };
+
   const handleSave = () => {
-    api.updateSettings({ username });
+    api.updateSettings({ username, password: password || undefined });
     toast.success("Preferences Saved", {
       description: "Your settings have been updated successfully."
     });
@@ -53,6 +61,12 @@ export function SettingsModal() {
                 <Label className="text-sm font-medium text-zinc-300 mb-1">Display Name</Label>
                 <Input value={username} onChange={handleUsernameChange} className="bg-zinc-950 border-zinc-800 focus:border-emerald-500 transition-colors" />
                 <Description className="text-xs text-zinc-500 mt-1.5">This name will be broadcasted to peers on the local network.</Description>
+              </TextField>
+
+              <TextField>
+                <Label className="text-sm font-medium text-zinc-300 mb-1">Server Password (Optional)</Label>
+                <Input type="password" value={password} onChange={handlePasswordChange} className="bg-zinc-950 border-zinc-800 focus:border-emerald-500 transition-colors" />
+                <Description className="text-xs text-zinc-500 mt-1.5">Set a password to require it when peers connect to your machine.</Description>
               </TextField>
 
               <TextField>

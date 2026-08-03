@@ -22,7 +22,8 @@ var state = app.Services.GetRequiredService<WorkspaceState>();
 var folderEnv = Environment.GetEnvironmentVariable("folder")?.Replace("\"", "").Replace("'", "");
 state.CurrentFolder = !string.IsNullOrEmpty(folderEnv) ? folderEnv : Directory.GetCurrentDirectory();
 state.Settings.Username = "Server"; // Force the username to "Server" in memory only
-
+var passwordEnv = Environment.GetEnvironmentVariable("password")?.Replace("\"", "").Replace("'", "");
+if (!string.IsNullOrEmpty(passwordEnv)) state.Settings.Password = passwordEnv;
 if (!Directory.Exists(state.CurrentFolder))
 {
     Console.WriteLine($"[Synq Server] Created sync directory: {state.CurrentFolder}");

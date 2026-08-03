@@ -164,6 +164,11 @@ public class LanDiscoveryService : IDisposable
         try
         {
             using var http = new HttpClient();
+            if (_workspaceState.Settings.PeerPasswords.TryGetValue($"{ip}:{port}", out var pwd))
+            {
+                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", pwd);
+            }
+            
             // Fetch remote manifest
             var response = await http.GetAsync($"http://{ip}:{port}/api/sync/manifest");
             if (response.IsSuccessStatusCode)
@@ -180,7 +185,13 @@ public class LanDiscoveryService : IDisposable
                     if (PeerConnection != null) await PeerConnection.StopAsync();
 
                     PeerConnection = new HubConnectionBuilder()
-                        .WithUrl($"http://{ip}:{port}/hub")
+                        .WithUrl($"http://{ip}:{port}/hub", options => 
+                        {
+                            if (_workspaceState.Settings.PeerPasswords.TryGetValue($"{ip}:{port}", out var pwd2))
+                            {
+                                options.AccessTokenProvider = () => Task.FromResult(pwd2);
+                            }
+                        })
                         .WithAutomaticReconnect()
                         .Build();
 
