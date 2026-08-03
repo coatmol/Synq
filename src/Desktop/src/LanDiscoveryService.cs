@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -10,7 +11,7 @@ namespace Desktop;
 
 public class LanDiscoveryService : IDisposable
 {
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string IP, int Port)> _discoveredPeers = new();
+    private readonly ConcurrentDictionary<string, (string IP, int Port)> _discoveredPeers = new();
     private readonly DocumentManager _manager;
     private readonly SyncManager _syncManager;
     private readonly WorkspaceState _workspaceState;
@@ -73,10 +74,7 @@ public class LanDiscoveryService : IDisposable
                     using var http = new HttpClient();
                     http.Timeout = TimeSpan.FromSeconds(2);
                     var res = await http.GetAsync($"http://{ipStr}:{port}/api/settings");
-                    if (res.IsSuccessStatusCode)
-                    {
-                        _discoveredPeers[e.ServiceInstanceName.ToString()] = (ipStr, port);
-                    }
+                    if (res.IsSuccessStatusCode) _discoveredPeers[e.ServiceInstanceName.ToString()] = (ipStr, port);
                 }
                 catch
                 {
@@ -208,7 +206,7 @@ public class LanDiscoveryService : IDisposable
                     .WithUrl($"http://{ip}:{port}/hub", options =>
                     {
                         if (_workspaceState.Settings.PeerPasswords.TryGetValue($"{ip}:{port}", out var pwd2))
-                            options.AccessTokenProvider = () => Task.FromResult(pwd2);
+                            options.AccessTokenProvider = () => Task.FromResult<string?>(pwd2);
                     })
                     .WithAutomaticReconnect()
                     .Build();

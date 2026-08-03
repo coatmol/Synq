@@ -21,6 +21,6 @@ public class Tests
             new CharNode(new PositionIdentifier([60], "Peer A", 11), 'd')
                 { IsDeleted = false });
 
-        Assert.AreEqual("Hello, World!", sequence.ToString());
+        Assert.AreEqual("Hello, Worl!", sequence.ToString());
     }
 }

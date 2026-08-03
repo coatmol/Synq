@@ -1,10 +1,11 @@
+using System.Collections.Concurrent;
 using Engine;
 
 namespace Desktop;
 
 public class DocumentManager
 {
-    private readonly Dictionary<string, TextSequence> _documents = new();
+    private readonly ConcurrentDictionary<string, TextSequence> _documents = new();
     private readonly string _peerId;
     private readonly WorkspaceState _state;
 
@@ -16,21 +17,21 @@ public class DocumentManager
 
     public TextSequence GetOrCreateDocument(string filename)
     {
-        if (_documents.TryGetValue(filename, out var doc)) return doc;
-
-        doc = new TextSequence(_peerId);
-        if (!string.IsNullOrEmpty(_state.CurrentFolder))
+        return _documents.GetOrAdd(filename, key =>
         {
-            var path = PathUtils.GetSafePath(_state.CurrentFolder, filename);
-            if (path != null && File.Exists(path))
+            var doc = new TextSequence(_peerId);
+            if (!string.IsNullOrEmpty(_state.CurrentFolder))
             {
-                var content = File.ReadAllText(path);
-                if (!string.IsNullOrEmpty(content)) doc.LocalInsert(0, content);
+                var path = PathUtils.GetSafePath(_state.CurrentFolder, key);
+                if (path != null && File.Exists(path))
+                {
+                    var content = File.ReadAllText(path);
+                    if (!string.IsNullOrEmpty(content)) doc.LocalInsert(0, content);
+                }
             }
-        }
 
-        _documents[filename] = doc;
-        return doc;
+            return doc;
+        });
     }
 
     public void SaveToDisk(string filename)
