@@ -91,14 +91,22 @@ public class LanDiscoveryService : IDisposable
 
     public IEnumerable<object> GetDiscoveredPeers()
     {
-        return _discoveredPeers.Select((kvp, index) => new
-        {
-            id = index + 1,
-            name = kvp.Key,
-            ip = kvp.Value.IP,
-            port = kvp.Value.Port,
-            status = "online",
-            init = kvp.Key.Substring(0, Math.Min(2, kvp.Key.Length)).ToUpper()
+        return _discoveredPeers.Select((kvp, index) => {
+            var actualName = kvp.Key;
+            var lastDash = kvp.Key.LastIndexOf("-");
+            if (lastDash > 0)
+            {
+                actualName = kvp.Key.Substring(0, lastDash);
+            }
+            return new
+            {
+                id = index + 1,
+                name = actualName,
+                ip = kvp.Value.IP,
+                port = kvp.Value.Port,
+                status = "online",
+                init = actualName.Substring(0, Math.Min(2, actualName.Length)).ToUpper()
+            };
         });
     }
 

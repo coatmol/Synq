@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import type {ReactNode} from "react";
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { Tooltip, Button, Dropdown } from "@heroui/react";
+import { toast } from "sonner";
 import { SettingsModal } from "./SettingsModal";
 import { LanPeersPanel } from "./LanPeersPanel";
 import * as React from "react";
@@ -109,7 +110,9 @@ function Topbar() {
               const info = await api.getShareInfo();
               if (info) {
                 const ips = info.ips.join(", ");
-                alert(`Tell your peers to connect to:\n\nIP(s): ${ips}\nPort: ${info.port}\n\n(A peer discovery broadcast was also forcefully sent to the local network.)`);
+                toast.success("Peer Discovery Broadcasted", {
+                  description: `Tell your peers to connect to:\nIP(s): ${ips}\nPort: ${info.port}`,
+                });
               }
             }}
             className="bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 hover:border-emerald-500 transition-all h-7 text-xs font-medium px-4 rounded-md shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]"

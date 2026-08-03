@@ -1,4 +1,5 @@
 import { Modal, Button, TextField, Label, Input, Description } from "@heroui/react";
+import { toast } from "sonner";
 import { useState } from "react";
 import { api } from "../api";
 
@@ -9,9 +10,13 @@ export function ConnectModal() {
   const handleConnect = async () => {
     const success = await api.connectPeer(ip, parseInt(port, 10));
     if (success) {
-      alert("Connected successfully!");
+      toast.success("Connected", {
+        description: `Successfully connected to peer at ${ip}:${port}`
+      });
     } else {
-      alert("Failed to connect.");
+      toast.error("Connection Failed", {
+        description: `Failed to connect to peer at ${ip}:${port}`
+      });
     }
   };
 

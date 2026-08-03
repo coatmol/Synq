@@ -2,12 +2,13 @@
 import { useCallback, useEffect, useRef } from "react";
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
 import ReactMarkdown from "react-markdown";
+import { Spinner } from "@heroui/react";
 import { useBufferedInput } from "../hooks/useBufferedInput";
 import { useDocumentStore } from "../hooks/useDocumentHub";
 import DiffMatchPatch from "diff-match-patch";
 
 export function EditorWorkspace() {
-  const { text: remoteText, setDocumentStats } = useDocumentStore();
+  const { text: remoteText, setDocumentStats, isLoading } = useDocumentStore();
   const { localText, setLocalText, queueInsert, queueDelete } = useBufferedInput();
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -102,9 +103,15 @@ export function EditorWorkspace() {
 
   return (
     <div className="flex flex-col h-full w-full bg-zinc-950">
-      <PanelGroup direction="horizontal" className="flex-1 w-full overflow-hidden relative bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-zinc-900/40 via-zinc-950 to-zinc-950">
-        
-        {/* Raw Markdown Input */}
+      {isLoading ? (
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <Spinner color="success" size="lg" />
+          <p className="text-zinc-500 mt-4 text-sm font-medium">Loading Document...</p>
+        </div>
+      ) : (
+        <PanelGroup direction="horizontal" className="flex-1 w-full overflow-hidden relative bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-zinc-900/40 via-zinc-950 to-zinc-950">
+          
+          {/* Raw Markdown Input */}
         <Panel defaultSize={50} minSize={20} className="relative group flex flex-col h-full">
           <div className="absolute top-4 right-6 text-[10px] font-bold text-zinc-700 uppercase tracking-widest pointer-events-none transition-colors z-10">Markdown</div>
           <div className="flex-1 overflow-hidden custom-scrollbar bg-transparent p-6">
@@ -133,6 +140,7 @@ export function EditorWorkspace() {
           </div>
         </Panel>
       </PanelGroup>
+      )}
     </div>
   );
 }

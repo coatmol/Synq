@@ -10,6 +10,8 @@ interface DocumentState {
   setText: (text: string) => void;
   isConnected: boolean;
   setIsConnected: (status: boolean) => void;
+  isLoading: boolean;
+  setIsLoading: (status: boolean) => void;
   documentStats: { words: number; chars: number; line: number; col: number };
   setDocumentStats: (stats: { words: number; chars: number; line: number; col: number }) => void;
 }
@@ -21,6 +23,8 @@ export const useDocumentStore = create<DocumentState>((set) => ({
   setText: (text) => set({ text }),
   isConnected: false,
   setIsConnected: (status) => set({ isConnected: status }),
+  isLoading: false,
+  setIsLoading: (status) => set({ isLoading: status }),
   documentStats: { words: 0, chars: 0, line: 1, col: 1 },
   setDocumentStats: (stats) => set({ documentStats: stats }),
 }));
@@ -74,8 +78,10 @@ export function useDocumentHub() {
   }, [setText, setIsConnected]);
 
   const fetchDocument = async () => {
-    const activeFile = useDocumentStore.getState().activeFile;
+    const { activeFile, setIsLoading } = useDocumentStore.getState();
     if (!activeFile) return;
+    
+    setIsLoading(true);
     try {
       const response = await fetch(`${BASE_URL}/api/document?filename=${encodeURIComponent(activeFile)}`);
       if (response.ok) {
@@ -84,6 +90,8 @@ export function useDocumentHub() {
       }
     } catch (err) {
       console.error("Failed to fetch initial document state", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
