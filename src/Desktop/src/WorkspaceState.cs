@@ -94,6 +94,8 @@ public class WorkspaceState
         }
     }
 
+    public bool IsHeadless { get; set; } = false;
+
     public AppSettings Settings { get; private set; } = new();
 
     private void LoadSettings()

@@ -16,9 +16,9 @@ public static class ApiEndpoints
             var state = context.RequestServices.GetRequiredService<WorkspaceState>();
             if (!string.IsNullOrEmpty(state.Settings.Password))
             {
-                var isLocal = context.Connection.RemoteIpAddress == null || 
+                var isLocal = !state.IsHeadless && (context.Connection.RemoteIpAddress == null || 
                               IPAddress.IsLoopback(context.Connection.RemoteIpAddress) || 
-                              context.Connection.RemoteIpAddress.ToString() == context.Connection.LocalIpAddress?.ToString();
+                              context.Connection.RemoteIpAddress.ToString() == context.Connection.LocalIpAddress?.ToString());
                               
                 var isExcluded = context.Request.Path.StartsWithSegments("/api/settings") && context.Request.Method == "GET";
                 
