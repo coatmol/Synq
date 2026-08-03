@@ -10,7 +10,7 @@ namespace Desktop;
 
 public class LanDiscoveryService : IDisposable
 {
-    private readonly Dictionary<string, (string IP, int Port)> _discoveredPeers = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string IP, int Port)> _discoveredPeers = new();
     private readonly DocumentManager _manager;
     private readonly SyncManager _syncManager;
     private readonly WorkspaceState _workspaceState;
@@ -54,7 +54,7 @@ public class LanDiscoveryService : IDisposable
 
         _mdns.NetworkInterfaceDiscovered += (s, e) => _mdns.SendQuery("_synq._tcp.local", type: DnsType.PTR);
 
-        _serviceDiscovery.ServiceInstanceDiscovered += (s, e) =>
+        _serviceDiscovery.ServiceInstanceDiscovered += async (s, e) =>
         {
             var aRecord = e.Message.Answers.OfType<ARecord>().FirstOrDefault() ??
                           e.Message.AdditionalRecords.OfType<ARecord>().FirstOrDefault();
@@ -68,8 +68,20 @@ public class LanDiscoveryService : IDisposable
                 // Ignore our own broadcast
                 if (port == httpPort) return;
 
-                _discoveredPeers[e.ServiceInstanceName.ToString()] = (ipStr, port);
-                Console.WriteLine($"Discovered peer at {ipStr}:{port}");
+                try
+                {
+                    using var http = new HttpClient();
+                    http.Timeout = TimeSpan.FromSeconds(2);
+                    var res = await http.GetAsync($"http://{ipStr}:{port}/api/settings");
+                    if (res.IsSuccessStatusCode)
+                    {
+                        _discoveredPeers[e.ServiceInstanceName.ToString()] = (ipStr, port);
+                    }
+                }
+                catch
+                {
+                    // Peer is dead or unresponsive
+                }
             }
         };
 
@@ -90,11 +102,11 @@ public class LanDiscoveryService : IDisposable
                 try
                 {
                     var res = await http.GetAsync($"http://{peer.IP}:{peer.Port}/api/settings");
-                    if (!res.IsSuccessStatusCode) _discoveredPeers.Remove(key);
+                    if (!res.IsSuccessStatusCode) _discoveredPeers.TryRemove(key, out _);
                 }
                 catch
                 {
-                    _discoveredPeers.Remove(key);
+                    _discoveredPeers.TryRemove(key, out _);
                 }
     }
 
