@@ -1,38 +1,83 @@
 using Engine;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR.Client;
 
 namespace Desktop;
 
 public class DocumentHub : Hub
 {
-    private readonly TextSequence _sequence;
+    private readonly DocumentManager _manager;
 
-    public DocumentHub(TextSequence sequence)
+    public DocumentHub(DocumentManager manager)
     {
-        _sequence = sequence;
+        _manager = manager;
     }
 
-    public async Task InsertCharacter(int index, char value)
+    public async Task InsertCharacter(string filename, int index, char value)
     {
-        _sequence.LocalInsert(index, value);
-        await Clients.All.SendAsync("DocumentUpdated", _sequence.ToString());
+        var seq = _manager.GetOrCreateDocument(filename);
+        var node = seq.LocalInsert(index, value);
+        _manager.SaveToDisk(filename);
+        await Clients.Others.SendAsync("DocumentUpdated", filename, seq.ToString());
+        await Clients.Others.SendAsync("SyncNodes", filename, new List<CharNode> { node });
+        await ForwardNodesToPeer(filename, new List<CharNode> { node });
     }
 
-    public async Task InsertText(int index, string value)
+    public async Task InsertText(string filename, int index, string value)
     {
-        _sequence.LocalInsert(index, value);
-        await Clients.All.SendAsync("DocumentUpdated", _sequence.ToString());
+        var seq = _manager.GetOrCreateDocument(filename);
+        var nodes = seq.LocalInsert(index, value);
+        _manager.SaveToDisk(filename);
+        await Clients.Others.SendAsync("DocumentUpdated", filename, seq.ToString());
+        await Clients.Others.SendAsync("SyncNodes", filename, nodes);
+        await ForwardNodesToPeer(filename, nodes);
     }
 
-    public async Task DeleteCharacter(int index)
+    public async Task DeleteCharacter(string filename, int index)
     {
-        _sequence.LocalDelete(index);
-        await Clients.All.SendAsync("DocumentUpdated", _sequence.ToString());
+        var seq = _manager.GetOrCreateDocument(filename);
+        var node = seq.LocalDelete(index);
+        _manager.SaveToDisk(filename);
+        await Clients.Others.SendAsync("DocumentUpdated", filename, seq.ToString());
+        if (node != null)
+        {
+            await Clients.Others.SendAsync("SyncNodes", filename, new List<CharNode> { node.Value });
+            await ForwardNodesToPeer(filename, new List<CharNode> { node.Value });
+        }
     }
 
-    public async Task DeleteText(int index, int length)
+    public async Task DeleteText(string filename, int index, int length)
     {
-        _sequence.LocalDelete(index, length);
-        await Clients.All.SendAsync("DocumentUpdated", _sequence.ToString());
+        var seq = _manager.GetOrCreateDocument(filename);
+        var nodes = seq.LocalDelete(index, length);
+        _manager.SaveToDisk(filename);
+        await Clients.Others.SendAsync("DocumentUpdated", filename, seq.ToString());
+        await Clients.Others.SendAsync("SyncNodes", filename, nodes);
+        await ForwardNodesToPeer(filename, nodes);
+    }
+
+    public async Task SyncNodes(string filename, List<CharNode> nodes)
+    {
+        var seq = _manager.GetOrCreateDocument(filename);
+        foreach (var node in nodes)
+        {
+            seq.RemoteMerge(node);
+        }
+        _manager.SaveToDisk(filename);
+        await Clients.Others.SendAsync("DocumentUpdated", filename, seq.ToString());
+        await Clients.Others.SendAsync("SyncNodes", filename, nodes);
+    }
+    
+    private async Task ForwardNodesToPeer(string filename, List<CharNode> nodes)
+    {
+        var httpContext = Context.GetHttpContext();
+        if (httpContext == null) return;
+        var discovery = httpContext.RequestServices.GetService<LanDiscoveryService>();
+        if (discovery?.PeerConnection != null)
+        {
+            try {
+                await discovery.PeerConnection.SendAsync("SyncNodes", filename, nodes);
+            } catch { }
+        }
     }
 }

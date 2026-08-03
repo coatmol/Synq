@@ -1,16 +1,18 @@
 // @ts-nocheck
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type {ReactNode} from "react";
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { Tooltip, Button, Dropdown } from "@heroui/react";
 import { SettingsModal } from "./SettingsModal";
 import { LanPeersPanel } from "./LanPeersPanel";
 import * as React from "react";
+import { api } from "../api";
+import { useDocumentStore, useDocumentHub } from "../hooks/useDocumentHub";
 
 function Topbar() {
   const sendMessage = (action: string) => {
     if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
-      (window as any).external.sendMessage(action);
+      (window as any).external.sendMessage(JSON.stringify({ action }));
     }
   };
 
@@ -25,9 +27,8 @@ function Topbar() {
   return (
     <div 
       className="h-12 shrink-0 bg-zinc-900 border-b border-zinc-800/80 flex items-center justify-between px-2 select-none z-50 backdrop-blur-md"
-      style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
-      <div className="flex items-center gap-6" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+      <div className="flex items-center gap-6">
         <div className="flex items-center gap-4 pl-2">
           <Dropdown placement="bottom-start">
             <Dropdown.Trigger>
@@ -39,13 +40,13 @@ function Topbar() {
                 File
               </Button>
             </Dropdown.Trigger>
-            <Dropdown.Popover className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-2xl v3 \'/min-w-50" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+            <Dropdown.Popover className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-2xl v3 \'/min-w-50">
               <Dropdown.Menu aria-label="File Options" className="p-1">
                 <Dropdown.Item key="new" className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
                   New Document
                 </Dropdown.Item>
-                <Dropdown.Item key="open" className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
-                  Open...
+                <Dropdown.Item key="open" onPress={() => sendMessage("openFolder")} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
+                  Open Folder...
                 </Dropdown.Item>
                 <Dropdown.Item key="save" className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
                   Save
@@ -98,12 +99,21 @@ function Topbar() {
       </div>
 
       {/* Right Side  */}
-      <div className="flex items-center h-full gap-2" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+      <div className="flex items-center h-full gap-2">
         <div className="flex items-center gap-3 pr-4 border-zinc-800/80 h-full">
           <LanPeersPanel />
           <div className="w-px h-5 bg-zinc-800 mx-1"></div>
           <SettingsModal />
-          <Button className="bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 hover:border-emerald-500 transition-all h-7 text-xs font-medium px-4 rounded-md shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+          <Button 
+            onPress={async () => {
+              const info = await api.getShareInfo();
+              if (info) {
+                const ips = info.ips.join(", ");
+                alert(`Tell your peers to connect to:\n\nIP(s): ${ips}\nPort: ${info.port}\n\n(A peer discovery broadcast was also forcefully sent to the local network.)`);
+              }
+            }}
+            className="bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 hover:border-emerald-500 transition-all h-7 text-xs font-medium px-4 rounded-md shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+          >
             Share
           </Button>
         </div>
@@ -119,6 +129,40 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [treeOpen, setTreeOpen] = useState(true);
+  const [files, setFiles] = useState<string[]>([]);
+  const { activeFile, setActiveFile } = useDocumentStore();
+  const { fetchDocument } = useDocumentHub();
+
+  const fetchFiles = async () => {
+    const fetchedFiles = await api.getFiles();
+    setFiles(fetchedFiles);
+  };
+
+  useEffect(() => {
+    fetchFiles();
+    const interval = setInterval(fetchFiles, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (activeFile) fetchDocument();
+  }, [activeFile]);
+
+  const handleCreateFile = async () => {
+    const filename = prompt("Enter new filename:");
+    if (filename) {
+      await api.createFile(filename);
+      await fetchFiles();
+    }
+  };
+
+  const handleDeleteFile = async (filename: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Are you sure you want to delete ${filename}?`)) {
+      await api.deleteFile(filename);
+      await fetchFiles();
+    }
+  };
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-zinc-950 text-zinc-50 dark selection:bg-emerald-500/30 font-sans">
@@ -130,20 +174,41 @@ export function AppLayout({ children }: AppLayoutProps) {
             
             <div className="flex items-center justify-between mb-2 cursor-pointer group select-none" onClick={() => setTreeOpen(!treeOpen)}>
               <h2 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest group-hover:text-zinc-300 transition-colors">Document Tree</h2>
-              <svg className={`w-3.5 h-3.5 text-zinc-500 transition-transform duration-200 ${treeOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleCreateFile(); }}
+                  className="text-zinc-500 hover:text-emerald-500 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                </button>
+                <svg className={`w-3.5 h-3.5 text-zinc-500 transition-transform duration-200 ${treeOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
             </div>
             
-            <div className={`flex flex-col gap-1 overflow-hidden transition-all duration-300 ${treeOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-zinc-800/50 text-sm text-zinc-300 border border-zinc-700/50 cursor-pointer hover:bg-zinc-800 transition-colors shadow-sm">
-                <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                README.md
-              </div>
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300 transition-colors cursor-pointer">
-                <svg className="w-4 h-4 text-zinc-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                notes.md
-              </div>
+            <div className={`flex flex-col gap-1 overflow-hidden transition-all duration-300 ${treeOpen ? 'opacity-100' : 'max-h-0 opacity-0'}`}>
+              {files.map(file => (
+                <div 
+                  key={file} 
+                  onClick={() => setActiveFile(file)}
+                  className={`flex items-center justify-between group/item px-2 py-1.5 rounded-md text-sm transition-colors cursor-pointer ${activeFile === file ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'}`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <svg className="w-4 h-4 text-zinc-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    {file}
+                  </div>
+                  <button 
+                    onClick={(e) => handleDeleteFile(file, e)}
+                    className="opacity-0 group-hover/item:opacity-100 text-red-500/70 hover:text-red-500 transition-opacity"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              ))}
+              {files.length === 0 && (
+                <div className="text-xs text-zinc-600 px-2 italic">No files found.</div>
+              )}
             </div>
           </div>
         </Panel>
@@ -153,7 +218,16 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         {/* Main Workspace */}
         <Panel defaultSize="80" className="flex flex-col overflow-hidden relative bg-zinc-950 shadow-inner">
-          {children}
+          {activeFile ? (
+            <div key={activeFile} className="flex-1 overflow-hidden relative flex flex-col">
+              {children}
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-zinc-500">
+              <svg className="w-16 h-16 mb-4 text-zinc-800" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              <p>Select a file to start editing</p>
+            </div>
+          )}
         </Panel>
       </PanelGroup>
 

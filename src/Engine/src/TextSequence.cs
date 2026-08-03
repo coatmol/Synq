@@ -11,7 +11,7 @@ public class TextSequence
         _peerId = peerId;
     }
 
-    public void LocalInsert(int index, char value)
+    public CharNode LocalInsert(int index, char value)
     {
         var activeNodes = _nodes.Where(n => !n.IsDeleted).ToList();
 
@@ -32,35 +32,55 @@ public class TextSequence
         if (insertIndex < 0) insertIndex = ~insertIndex;
 
         _nodes.Insert(insertIndex, newNode);
+        return newNode;
     }
 
-    public void LocalInsert(int index, string value)
+    public List<CharNode> LocalInsert(int index, string value)
     {
+        var newNodes = new List<CharNode>();
         foreach (var c in value)
         {
-            LocalInsert(index, c);
+            newNodes.Add(LocalInsert(index, c));
             index++;
         }
+        return newNodes;
     }
 
-    public void LocalDelete(int index)
+    public void OverwriteFromContent(string content)
+    {
+        _nodes.Clear();
+        _nextId = 0;
+        LocalInsert(0, content);
+    }
+
+    public CharNode? LocalDelete(int index)
     {
         var activeNodes = _nodes.Where(n => !n.IsDeleted).ToList();
-        if (index < 0 || index >= activeNodes.Count) return;
+        if (index < 0 || index >= activeNodes.Count) return null;
 
         var activeNode = activeNodes[index];
         activeNode.IsDeleted = true;
+        
+        var nodeIndex = _nodes.FindIndex(n => n.Id.Equals(activeNode.Id));
+        _nodes[nodeIndex] = activeNode;
+        return activeNode;
     }
 
-    public void LocalDelete(int index, int length)
+    public List<CharNode> LocalDelete(int index, int length)
     {
-        for (var i = length - 1; i >= 0; i--) LocalDelete(index + i);
+        var deletedNodes = new List<CharNode>();
+        for (var i = length - 1; i >= 0; i--) 
+        {
+            var deleted = LocalDelete(index + i);
+            if (deleted != null) deletedNodes.Add(deleted.Value);
+        }
+        return deletedNodes;
     }
 
     public void RemoteMerge(CharNode incomingNode)
     {
-        CharNode? existing = _nodes.FirstOrDefault(n => n.Id.Equals(incomingNode.Id));
-        if (existing is null)
+        var existingIndex = _nodes.FindIndex(n => n.Id.Equals(incomingNode.Id));
+        if (existingIndex < 0)
         {
             var index = _nodes.BinarySearch(incomingNode, Comparer<CharNode>.Create((a, b) => a.Id.CompareTo(b.Id)));
             if (index < 0) index = ~index;
@@ -68,9 +88,9 @@ public class TextSequence
         }
         else if (incomingNode.IsDeleted)
         {
-            existing = existing.Value with { IsDeleted = true };
-            var index = _nodes.FindIndex(n => n.Id.Equals(existing.Value.Id));
-            _nodes[index] = existing.Value;
+            var existing = _nodes[existingIndex];
+            existing.IsDeleted = true;
+            _nodes[existingIndex] = existing;
         }
     }
 

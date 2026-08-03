@@ -3,73 +3,124 @@ using System.Net.Sockets;
 using System.Text;
 using Engine;
 using Makaretu.Dns;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR.Client;
 
 namespace Desktop;
 
-public class LanDiscoveryService : BackgroundService
+public class LanDiscoveryService : IDisposable
 {
-    private const int Port = 5055;
-    private readonly TextSequence _sequence;
+    private readonly DocumentManager _manager;
     private MulticastService? _mdns;
     private ServiceDiscovery? _serviceDiscovery;
-    private TcpListener? _tcpListener;
+    public int Port { get; private set; }
 
-    public LanDiscoveryService(TextSequence sequence)
+    public LanDiscoveryService(DocumentManager manager)
     {
-        _sequence = sequence;
+        _manager = manager;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public void BroadcastQuery()
     {
-        // 1. Start TCP Listener for incoming peer data streams
-        _tcpListener = new TcpListener(IPAddress.Any, Port);
-        _tcpListener.Start();
-        _ = ListenForPeersAsync(stoppingToken);
+        _mdns?.SendQuery("_synq._tcp.local", type: DnsType.PTR);
+    }
 
-        // 2. Start mDNS Broadcast so local peers discover this machine
+    public void Start(int httpPort)
+    {
+        Port = httpPort;
         _mdns = new MulticastService();
         _serviceDiscovery = new ServiceDiscovery(_mdns);
 
-        var service = new ServiceProfile(Environment.MachineName, "_synq._tcp", Port);
-        _serviceDiscovery.Advertise(service);
-        _mdns.Start();
-
-        // 3. Listen for other peers appearing on the local network
+        var instanceName = $"{Environment.MachineName}-{httpPort}";
+        var service = new ServiceProfile(instanceName, "_synq._tcp", (ushort)httpPort);
+        
+        _mdns.NetworkInterfaceDiscovered += (s, e) => _mdns.SendQuery("_synq._tcp.local", type: DnsType.PTR);
+        
         _serviceDiscovery.ServiceInstanceDiscovered += (s, e) =>
         {
-            var address = e.Message.Answers.OfType<ARecord>().FirstOrDefault()?.Address;
-            if (address != null && !address.Equals(IPAddress.Loopback))
-                Console.WriteLine($"Discovered peer at {address}:{e.RemoteEndPoint.Port}");
-            // TODO: Automatically open an outgoing TCP client connection to this peer
+            var aRecord = e.Message.Answers.OfType<ARecord>().FirstOrDefault() ?? e.Message.AdditionalRecords.OfType<ARecord>().FirstOrDefault();
+            var srvRecord = e.Message.Answers.OfType<SRVRecord>().FirstOrDefault() ?? e.Message.AdditionalRecords.OfType<SRVRecord>().FirstOrDefault();
+            
+            if (aRecord != null && srvRecord != null)
+            {
+                var ipStr = aRecord.Address.ToString();
+                var port = srvRecord.Port;
+                // Ignore our own broadcast
+                if (port == httpPort) return;
+                
+                _discoveredPeers[e.ServiceInstanceName.ToString()] = (ipStr, port);
+                Console.WriteLine($"Discovered peer at {ipStr}:{port}");
+            }
         };
 
-        await Task.CompletedTask;
+        _serviceDiscovery.Advertise(service);
+        _mdns.Start();
     }
 
-    private async Task ListenForPeersAsync(CancellationToken token)
-    {
-        while (!token.IsCancellationRequested)
-        {
-            var client = await _tcpListener!.AcceptTcpClientAsync(token);
-            _ = Task.Run(() => HandlePeerConnectionAsync(client, token), token);
-        }
-    }
-
-    private async Task HandlePeerConnectionAsync(TcpClient client, CancellationToken token)
-    {
-        using var stream = client.GetStream();
-        var buffer = new byte[4096];
-        var bytesRead = await stream.ReadAsync(buffer, token);
-
-        // Deserialize incoming delta and merge into local TextSequence state
-        var payload = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-        // _sequence.MergeRemotePayload(payload);
-    }
-
-    public override void Dispose()
+    public void Dispose()
     {
         _mdns?.Stop();
-        _tcpListener?.Stop();
-        base.Dispose();
+    }
+
+    private readonly Dictionary<string, (string IP, int Port)> _discoveredPeers = new();
+
+    public IEnumerable<object> GetDiscoveredPeers()
+    {
+        return _discoveredPeers.Select((kvp, index) => new
+        {
+            id = index + 1,
+            name = kvp.Key,
+            ip = kvp.Value.IP,
+            port = kvp.Value.Port,
+            status = "online",
+            init = kvp.Key.Substring(0, Math.Min(2, kvp.Key.Length)).ToUpper()
+        });
+    }
+
+    public HubConnection? PeerConnection { get; private set; }
+
+    public async Task<bool> ConnectToPeerAsync(string ip, int port, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext)
+    {
+        try
+        {
+            using var http = new HttpClient();
+            var response = await http.GetAsync($"http://{ip}:{port}/api/sync");
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var data = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(content);
+                if (data != null)
+                {
+                    _manager.OverwriteFromSync(data);
+                    
+                    // Stop any existing connection
+                    if (PeerConnection != null) await PeerConnection.StopAsync();
+
+                    PeerConnection = new Microsoft.AspNetCore.SignalR.Client.HubConnectionBuilder()
+                        .WithUrl($"http://{ip}:{port}/hub")
+                        .WithAutomaticReconnect()
+                        .Build();
+                        
+                    PeerConnection.On<string, List<CharNode>>("SyncNodes", async (filename, nodes) =>
+                    {
+                        var seq = _manager.GetOrCreateDocument(filename);
+                        foreach (var node in nodes)
+                        {
+                            seq.RemoteMerge(node);
+                        }
+                        _manager.SaveToDisk(filename);
+                        await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, seq.ToString());
+                    });
+                    
+                    await PeerConnection.StartAsync();
+                    return true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"P2P Sync failed: {ex.Message}");
+        }
+        return false;
     }
 }

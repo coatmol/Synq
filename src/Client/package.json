@@ -13,12 +13,18 @@
     "@codemirror/lang-markdown": "^6.5.1",
     "@heroui/react": "^3.2.3",
     "@heroui/styles": "^3.2.3",
+    "@microsoft/signalr": "^10.0.0",
     "@tailwindcss/typography": "^0.5.20",
+    "@types/diff-match-patch": "^1.0.36",
     "@uiw/codemirror-themes": "^4.25.11",
     "@uiw/react-codemirror": "^4.25.11",
+    "diff-match-patch": "^1.0.5",
+    "lucide-react": "^1.28.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-resizable-panels": "^4.12.2"
+    "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4.12.2",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
