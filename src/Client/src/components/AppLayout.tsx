@@ -9,6 +9,8 @@ import { LanPeersPanel } from "./LanPeersPanel";
 import * as React from "react";
 import { api } from "../api";
 import { useDocumentStore, useDocumentHub } from "../hooks/useDocumentHub";
+import { FileTree } from "./FileTree";
+import { DeletedFileBanner } from "./DeletedFileBanner";
 
 function Topbar() {
   const sendMessage = (action: string) => {
@@ -88,16 +90,9 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const [treeOpen, setTreeOpen] = useState(true);
-  const [files, setFiles] = useState<string[]>([]);
   const [peers, setPeers] = useState<any[]>([]);
-  const { activeFile, setActiveFile, isConnected, documentStats } = useDocumentStore();
+  const { activeFile, setActiveFile, openFiles, setOpenFiles, deletedOpenFiles, setDeletedOpenFiles, isConnected, documentStats } = useDocumentStore();
   const { fetchDocument } = useDocumentHub();
-
-  const fetchFiles = async () => {
-    const fetchedFiles = await api.getFiles();
-    setFiles(fetchedFiles);
-  };
 
   const fetchPeers = async () => {
     const fetchedPeers = await api.getPeers();
@@ -105,12 +100,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   };
 
   useEffect(() => {
-    fetchFiles();
     fetchPeers();
-    const interval = setInterval(() => {
-      fetchFiles();
-      fetchPeers();
-    }, 3000);
+    const interval = setInterval(fetchPeers, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -118,19 +109,15 @@ export function AppLayout({ children }: AppLayoutProps) {
     if (activeFile) fetchDocument();
   }, [activeFile]);
 
-  const handleCreateFile = async () => {
-    const filename = prompt("Enter new filename:");
-    if (filename) {
-      await api.createFile(filename);
-      await fetchFiles();
-    }
-  };
-
-  const handleDeleteFile = async (filename: string, e: React.MouseEvent) => {
+  const closeFile = (e: React.MouseEvent, file: string) => {
     e.stopPropagation();
-    if (confirm(`Are you sure you want to delete ${filename}?`)) {
-      await api.deleteFile(filename);
-      await fetchFiles();
+    const newOpen = openFiles.filter(f => f !== file);
+    setOpenFiles(newOpen);
+    if (deletedOpenFiles.includes(file)) {
+      setDeletedOpenFiles(deletedOpenFiles.filter(f => f !== file));
+    }
+    if (activeFile === file) {
+      setActiveFile(newOpen.length > 0 ? newOpen[newOpen.length - 1] : null);
     }
   };
 
@@ -140,47 +127,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <PanelGroup direction="horizontal" className="flex-1 w-full overflow-hidden">
         {/* Sidebar */}
         <Panel defaultSize="20" minSize="15" maxSize="40" className="flex flex-col bg-zinc-900/30 backdrop-blur-md">
-          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2 custom-scrollbar">
-            
-            <div className="flex items-center justify-between mb-2 cursor-pointer group select-none" onClick={() => setTreeOpen(!treeOpen)}>
-              <h2 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest group-hover:text-zinc-300 transition-colors">Document Tree</h2>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleCreateFile(); }}
-                  className="text-zinc-500 hover:text-emerald-500 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                </button>
-                <svg className={`w-3.5 h-3.5 text-zinc-500 transition-transform duration-200 ${treeOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </div>
-            
-            <div className={`flex flex-col gap-1 overflow-hidden transition-all duration-300 ${treeOpen ? 'opacity-100' : 'max-h-0 opacity-0'}`}>
-              {files.map(file => (
-                <div 
-                  key={file} 
-                  onClick={() => setActiveFile(file)}
-                  className={`flex items-center justify-between group/item px-2 py-1.5 rounded-md text-sm transition-colors cursor-pointer ${activeFile === file ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'}`}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <svg className="w-4 h-4 text-zinc-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    {file}
-                  </div>
-                  <button 
-                    onClick={(e) => handleDeleteFile(file, e)}
-                    className="opacity-0 group-hover/item:opacity-100 text-red-500/70 hover:text-red-500 transition-opacity"
-                  >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-              ))}
-              {files.length === 0 && (
-                <div className="text-xs text-zinc-600 px-2 italic">No files found.</div>
-              )}
-            </div>
-          </div>
+          <FileTree />
         </Panel>
 
         {/* Resizer */}
@@ -188,8 +135,25 @@ export function AppLayout({ children }: AppLayoutProps) {
 
         {/* Main Workspace */}
         <Panel defaultSize="80" className="flex flex-col overflow-hidden relative bg-zinc-950 shadow-inner">
+          {openFiles.length > 0 && (
+            <div className="flex bg-zinc-900 border-b border-zinc-800 overflow-x-auto custom-scrollbar no-scrollbar-y shrink-0 min-h-[30px]">
+              {openFiles.map(file => (
+                <div 
+                  key={file} 
+                  onClick={() => setActiveFile(file)}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer border-r border-zinc-800 ${activeFile === file ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:bg-zinc-800/50'}`}
+                >
+                  <span className="truncate max-w-[150px]">{file.split('/').pop()}</span>
+                  <button onClick={(e) => closeFile(e, file)} className="hover:text-red-400 rounded-full p-0.5 hover:bg-zinc-700 transition-colors shrink-0">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           {activeFile ? (
             <div key={activeFile} className="flex-1 overflow-hidden relative flex flex-col">
+              {deletedOpenFiles.includes(activeFile) && <DeletedFileBanner />}
               {children}
             </div>
           ) : (

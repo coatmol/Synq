@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.SignalR;
 using Desktop;
 using Engine;
 using Photino.NET;
@@ -58,10 +59,24 @@ internal class Program
             var body = await reader.ReadToEndAsync();
             var data = System.Text.Json.JsonDocument.Parse(body);
             var filename = data.RootElement.GetProperty("filename").GetString();
-            var content = data.RootElement.GetProperty("content").GetString();
-            
+            var isDirectory = false;
+            if (data.RootElement.TryGetProperty("isDirectory", out var isDirProp))
+            {
+                isDirectory = isDirProp.GetBoolean();
+            }
+
             var path = Path.Combine(state.CurrentFolder, filename!);
-            await File.WriteAllTextAsync(path, content);
+            var dir = isDirectory ? path : Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            if (isDirectory)
+            {
+                sync.InitializeLocalFolder();
+                return Results.Ok();
+            }
+
+            var content = data.RootElement.GetProperty("content").GetString();
+            await File.WriteAllTextAsync(path, content!);
             docManager.GetOrCreateDocument(filename!);
             
             // Re-init local folder to update hashes
@@ -72,13 +87,19 @@ internal class Program
         // File System REST Routes
         app.MapGet("/api/files", (WorkspaceState state) =>
         {
-            var files = Directory.GetFiles(state.CurrentFolder, "*.md")
-                                 .Select(Path.GetFileName)
-                                 .ToArray();
-            return Results.Ok(files);
+            var root = state.CurrentFolder;
+            var allFiles = Directory.GetFiles(root, "*.md", SearchOption.AllDirectories)
+                .Where(f => !f.Contains(Path.DirectorySeparatorChar + ".synq" + Path.DirectorySeparatorChar) && !f.EndsWith(Path.DirectorySeparatorChar + ".synq"))
+                .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/'));
+                
+            var allDirs = Directory.GetDirectories(root, "*", SearchOption.AllDirectories)
+                .Where(d => !d.Contains(Path.DirectorySeparatorChar + ".synq" + Path.DirectorySeparatorChar) && !d.EndsWith(Path.DirectorySeparatorChar + ".synq"))
+                .Select(d => Path.GetRelativePath(root, d).Replace('\\', '/'));
+                
+            return Results.Ok(new { files = allFiles, folders = allDirs });
         });
 
-        app.MapPost("/api/files", async (HttpRequest req, WorkspaceState state) =>
+        app.MapPost("/api/files", async (HttpRequest req, WorkspaceState state, SyncManager sync, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext) =>
         {
             using var reader = new StreamReader(req.Body);
             var body = await reader.ReadToEndAsync();
@@ -88,20 +109,99 @@ internal class Program
             if (!filename.EndsWith(".md")) filename += ".md";
 
             var filePath = Path.Combine(state.CurrentFolder, filename);
+            var dir = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
             if (!File.Exists(filePath))
             {
-                await File.WriteAllTextAsync(filePath, "# " + filename.Replace(".md", ""));
+                await File.WriteAllTextAsync(filePath, "# " + Path.GetFileNameWithoutExtension(filename));
             }
+            sync.InitializeLocalFolder();
+            await hubContext.Clients.All.SendAsync("FileCreated", filename);
             return Results.Ok();
         });
 
-        app.MapDelete("/api/files/{filename}", (string filename, WorkspaceState state) =>
+        app.MapDelete("/api/files/{*filename}", async (string filename, WorkspaceState state, SyncManager sync, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext) =>
         {
-            var filePath = Path.Combine(state.CurrentFolder, filename);
+            var filePath = Path.Combine(state.CurrentFolder, Uri.UnescapeDataString(filename));
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);
             }
+            sync.InitializeLocalFolder();
+            await hubContext.Clients.All.SendAsync("ItemDeleted", Uri.UnescapeDataString(filename));
+            return Results.Ok();
+        });
+
+        app.MapPost("/api/folders", async (HttpRequest req, WorkspaceState state, SyncManager sync, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext) =>
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = System.Text.Json.JsonDocument.Parse(body);
+            var path = data.RootElement.GetProperty("path").GetString();
+            if (string.IsNullOrEmpty(path)) return Results.BadRequest();
+
+            var dirPath = Path.Combine(state.CurrentFolder, path);
+            if (!Directory.Exists(dirPath)) Directory.CreateDirectory(dirPath);
+
+            sync.InitializeLocalFolder();
+            await hubContext.Clients.All.SendAsync("FolderCreated", path);
+            return Results.Ok();
+        });
+
+        app.MapDelete("/api/folders/{*path}", async (string path, WorkspaceState state, SyncManager sync, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext) =>
+        {
+            var dirPath = Path.Combine(state.CurrentFolder, Uri.UnescapeDataString(path));
+            if (Directory.Exists(dirPath))
+            {
+                Directory.Delete(dirPath, true);
+            }
+            sync.InitializeLocalFolder();
+            await hubContext.Clients.All.SendAsync("ItemDeleted", Uri.UnescapeDataString(path));
+            return Results.Ok();
+        });
+
+        app.MapPost("/api/files/rename", async (HttpRequest req, WorkspaceState state, SyncManager sync, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext) =>
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = System.Text.Json.JsonDocument.Parse(body);
+            var oldPath = data.RootElement.GetProperty("oldPath").GetString()!;
+            var newPath = data.RootElement.GetProperty("newPath").GetString()!;
+            
+            var oldAbs = Path.Combine(state.CurrentFolder, oldPath);
+            var newAbs = Path.Combine(state.CurrentFolder, newPath);
+            
+            if (File.Exists(oldAbs))
+            {
+                var dir = Path.GetDirectoryName(newAbs);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                File.Move(oldAbs, newAbs);
+            }
+            else if (Directory.Exists(oldAbs))
+            {
+                Directory.Move(oldAbs, newAbs);
+            }
+            
+            sync.InitializeLocalFolder();
+            await hubContext.Clients.All.SendAsync("ItemRenamed", oldPath, newPath);
+            return Results.Ok();
+        });
+
+        app.MapPost("/api/files/open-native", async (HttpRequest req, WorkspaceState state) =>
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = System.Text.Json.JsonDocument.Parse(body);
+            var path = data.RootElement.GetProperty("path").GetString()!;
+            
+            var absPath = Path.Combine(state.CurrentFolder, path);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{absPath}\"",
+                UseShellExecute = true
+            });
             return Results.Ok();
         });
 

@@ -17,6 +17,9 @@ public class ManifestFileEntry
 
     [JsonPropertyName("isTombstone")]
     public bool IsTombstone { get; set; }
+
+    [JsonPropertyName("isDirectory")]
+    public bool IsDirectory { get; set; }
 }
 
 public class SyncManifest
@@ -86,45 +89,77 @@ public class SyncManager
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return new SyncManifest();
 
         var manifest = LoadManifest(_state.CurrentFolder);
-        var filesOnDisk = Directory.GetFiles(_state.CurrentFolder, "*.md", SearchOption.TopDirectoryOnly)
-            .ToDictionary(f => Path.GetFileName(f)!, f => f); // RelativePath -> AbsolutePath
+        
+        var allEntriesOnDisk = new Dictionary<string, (string AbsPath, bool IsDirectory)>();
+        var rootDi = new DirectoryInfo(_state.CurrentFolder);
+
+        void ScanDirectory(DirectoryInfo d, string relativePath)
+        {
+            if (d.Name.StartsWith(".") && d.Name != ".synq" && d.Name != ".git") { /* allow other dots if needed, but let's exclude explicitly */ }
+            if (d.Name == ".synq" || d.Name == ".git" || d.Name == "node_modules") return;
+            
+            if (!string.IsNullOrEmpty(relativePath))
+            {
+                var normPath = relativePath.Replace('\\', '/');
+                allEntriesOnDisk[normPath] = (d.FullName, true);
+            }
+            
+            foreach (var file in d.GetFiles("*.md"))
+            {
+                var relPath = string.IsNullOrEmpty(relativePath) ? file.Name : $"{relativePath}/{file.Name}".Replace('\\', '/');
+                allEntriesOnDisk[relPath] = (file.FullName, false);
+            }
+            
+            foreach (var subDir in d.GetDirectories())
+            {
+                var relPath = string.IsNullOrEmpty(relativePath) ? subDir.Name : $"{relativePath}/{subDir.Name}";
+                ScanDirectory(subDir, relPath);
+            }
+        }
+
+        if (rootDi.Exists)
+        {
+            ScanDirectory(rootDi, "");
+        }
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-        // 1. Check existing files on disk
-        foreach (var (relPath, absPath) in filesOnDisk)
+        // 1. Check existing items on disk
+        foreach (var (relPath, item) in allEntriesOnDisk)
         {
-            var hash = ComputeHash(absPath);
+            var hash = item.IsDirectory ? "dir" : ComputeHash(item.AbsPath);
 
             var entryPair = manifest.Files.FirstOrDefault(x => x.Value.RelativePath == relPath);
             if (entryPair.Key != null) // Exists in manifest
             {
                 var entry = entryPair.Value;
-                if (entry.ContentHash != hash || entry.IsTombstone)
+                if (entry.ContentHash != hash || entry.IsTombstone || entry.IsDirectory != item.IsDirectory)
                 {
                     entry.ContentHash = hash;
                     entry.UpdatedAt = now;
                     entry.IsTombstone = false;
+                    entry.IsDirectory = item.IsDirectory;
                 }
             }
             else
             {
-                // New file
+                // New item
                 var id = Guid.NewGuid().ToString();
                 manifest.Files[id] = new ManifestFileEntry
                 {
                     RelativePath = relPath,
                     ContentHash = hash,
                     UpdatedAt = now,
-                    IsTombstone = false
+                    IsTombstone = false,
+                    IsDirectory = item.IsDirectory
                 };
             }
         }
 
-        // 2. Check missing files from manifest
+        // 2. Check missing items from manifest
         foreach (var (id, entry) in manifest.Files)
         {
-            if (!filesOnDisk.ContainsKey(entry.RelativePath))
+            if (!allEntriesOnDisk.ContainsKey(entry.RelativePath))
             {
                 if (!entry.IsTombstone)
                 {
@@ -175,7 +210,7 @@ public class SyncManager
                     }
                     else
                     {
-                        await FetchAndSaveFile(http, peerBaseUrl, remoteEntry.RelativePath);
+                        await FetchAndSaveFile(http, peerBaseUrl, remoteEntry.RelativePath, remoteEntry.IsDirectory);
                         localEntry.IsTombstone = false;
                         localEntry.ContentHash = remoteEntry.ContentHash;
                         localEntry.UpdatedAt = now;
@@ -186,13 +221,15 @@ public class SyncManager
                     if (remoteEntry.UpdatedAt > localEntry.UpdatedAt)
                     {
                         var filePath = Path.Combine(_state.CurrentFolder, localEntry.RelativePath);
-                        if (File.Exists(filePath)) File.Delete(filePath);
+                        if (localEntry.IsDirectory && Directory.Exists(filePath)) Directory.Delete(filePath, true);
+                        else if (!localEntry.IsDirectory && File.Exists(filePath)) File.Delete(filePath);
+                        
                         localEntry.IsTombstone = true;
                         localEntry.UpdatedAt = now;
                     }
                     else
                     {
-                        await PushFileToPeer(http, peerBaseUrl, localEntry.RelativePath);
+                        await PushFileToPeer(http, peerBaseUrl, localEntry.RelativePath, localEntry.IsDirectory);
                     }
                 }
                 else if (!localEntry.IsTombstone && !remoteEntry.IsTombstone)
@@ -200,13 +237,13 @@ public class SyncManager
                     // Strict last-write-wins replacement (no conflict copies)
                     if (remoteEntry.UpdatedAt > localEntry.UpdatedAt)
                     {
-                        await FetchAndSaveFile(http, peerBaseUrl, remoteEntry.RelativePath);
+                        await FetchAndSaveFile(http, peerBaseUrl, remoteEntry.RelativePath, remoteEntry.IsDirectory);
                         localEntry.ContentHash = remoteEntry.ContentHash;
                         localEntry.UpdatedAt = now;
                     }
                     else
                     {
-                        await PushFileToPeer(http, peerBaseUrl, localEntry.RelativePath);
+                        await PushFileToPeer(http, peerBaseUrl, localEntry.RelativePath, localEntry.IsDirectory);
                     }
                 }
             }
@@ -214,20 +251,21 @@ public class SyncManager
             {
                 if (!localEntry!.IsTombstone)
                 {
-                    await PushFileToPeer(http, peerBaseUrl, localEntry.RelativePath);
+                    await PushFileToPeer(http, peerBaseUrl, localEntry.RelativePath, localEntry.IsDirectory);
                 }
             }
             else if (!hasLocal && hasRemote)
             {
                 if (!remoteEntry!.IsTombstone)
                 {
-                    await FetchAndSaveFile(http, peerBaseUrl, remoteEntry.RelativePath);
+                    await FetchAndSaveFile(http, peerBaseUrl, remoteEntry.RelativePath, remoteEntry.IsDirectory);
                     localManifest.Files[Guid.NewGuid().ToString()] = new ManifestFileEntry
                     {
                         RelativePath = remoteEntry.RelativePath,
                         ContentHash = remoteEntry.ContentHash,
                         UpdatedAt = now,
-                        IsTombstone = false
+                        IsTombstone = false,
+                        IsDirectory = remoteEntry.IsDirectory
                     };
                 }
             }
@@ -236,25 +274,40 @@ public class SyncManager
         SaveManifest(_state.CurrentFolder, localManifest);
     }
 
-    private async Task FetchAndSaveFile(HttpClient http, string peerBaseUrl, string relativePath)
+    private async Task FetchAndSaveFile(HttpClient http, string peerBaseUrl, string relativePath, bool isDirectory)
     {
-        var content = await http.GetStringAsync($"{peerBaseUrl}/api/rawfile?filename={Uri.EscapeDataString(relativePath)}");
         var path = Path.Combine(_state.CurrentFolder!, relativePath);
+        if (isDirectory)
+        {
+            if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+            return;
+        }
+
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+        var content = await http.GetStringAsync($"{peerBaseUrl}/api/rawfile?filename={Uri.EscapeDataString(relativePath)}");
         File.WriteAllText(path, content);
         _documentManager.GetOrCreateDocument(relativePath); // Update memory
     }
 
 
-    private async Task PushFileToPeer(HttpClient http, string peerBaseUrl, string relativePath)
+    private async Task PushFileToPeer(HttpClient http, string peerBaseUrl, string relativePath, bool isDirectory)
     {
         var path = Path.Combine(_state.CurrentFolder!, relativePath);
-        if (File.Exists(path))
+        
+        string content = "";
+        if (!isDirectory && File.Exists(path))
         {
-            var content = File.ReadAllText(path);
-            var payload = new { filename = relativePath, content = content };
-            var json = JsonSerializer.Serialize(payload);
-            var reqContent = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-            await http.PostAsync($"{peerBaseUrl}/api/rawfile", reqContent);
+            content = File.ReadAllText(path);
         }
+        else if (!isDirectory) return; // File missing
+
+        if (isDirectory && !Directory.Exists(path)) return; // Dir missing
+
+        var payload = new { filename = relativePath, content = content, isDirectory = isDirectory };
+        var json = JsonSerializer.Serialize(payload);
+        var reqContent = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        await http.PostAsync($"{peerBaseUrl}/api/rawfile", reqContent);
     }
 }

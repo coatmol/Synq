@@ -7,7 +7,7 @@ export const getBaseUrl = () => {
 export const BASE_URL = getBaseUrl();
 
 export const api = {
-  getFiles: async (): Promise<string[]> => {
+  getFiles: async (): Promise<{files: string[], folders: string[]}> => {
     try {
       const response = await fetch(`${BASE_URL}/api/files`);
       if (response.ok) {
@@ -16,7 +16,7 @@ export const api = {
     } catch (e) {
       console.error("Failed to fetch files", e);
     }
-    return [];
+    return { files: [], folders: [] };
   },
   
   createFile: async (filename: string): Promise<boolean> => {
@@ -41,6 +41,74 @@ export const api = {
       return response.ok;
     } catch (e) {
       console.error("Failed to delete file", e);
+      return false;
+    }
+  },
+
+  renameItem: async (oldPath: string, newPath: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/files/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPath, newPath })
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to rename item", e);
+      return false;
+    }
+  },
+  
+  createFolder: async (path: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/folders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path })
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to create folder", e);
+      return false;
+    }
+  },
+  
+  deleteFolder: async (path: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/folders/${encodeURIComponent(path)}`, {
+        method: "DELETE"
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to delete folder", e);
+      return false;
+    }
+  },
+  
+  moveItem: async (oldPath: string, newPath: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/files/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPath, newPath })
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to move item", e);
+      return false;
+    }
+  },
+  
+  openNative: async (path: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/files/open-native`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path })
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to open native", e);
       return false;
     }
   },
