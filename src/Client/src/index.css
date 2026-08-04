@@ -80,3 +80,14 @@ body {
 .cm-atomic-link::after {
   display: none !important;
 }
+
+/* Ensure horizontal rules are visible */
+.cm-line.cm-atomic-hr::after {
+  content: "";
+  display: block;
+  height: 2px;
+  background-color: #52525b !important; /* zinc-600 */
+  margin: 0.5em 0;
+  border-radius: 1px;
+  width: 100%;
+}
