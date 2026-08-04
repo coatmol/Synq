@@ -36,7 +36,7 @@
         <NodePackageManager Condition="Exists('$(FrontendRoot)pnpm-lock.yaml')">pnpm</NodePackageManager>
         <NodePackageManager Condition="Exists('$(FrontendRoot)yarn.lock')">yarn</NodePackageManager>
         <!-- Fallback to bun if nothing else is found -->
-        <NodePackageManager Condition="'$(NodePackageManager)' == ''">bun</NodePackageManager>
+        <NodePackageManager Condition="'$(NodePackageManager)' == ''">npm</NodePackageManager>
     </PropertyGroup>
 
     <!-- Run build using the detected package manager -->
