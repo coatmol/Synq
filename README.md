@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="Assets/SynqWhite.png" alt="Synq Logo" width="128" />
-  <h1>Synq</h1>
+  <h1><img src="Assets/SynqWhite.png" alt="Synq Logo" width="64" style="vertical-align: middle;" />&nbsp;Synq</h1>
 </div>
 
 > A high-performance, local-first markdown editor and peer-to-peer knowledge workspace with zero server dependencies.
