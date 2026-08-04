@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { api } from "../api";
 import { ConnectModal } from "./ConnectModal";
+import { Folder, ArrowRight } from "lucide-react";
 
 interface WelcomeScreenProps {
   onOpenEditor: (path?: string) => void;
@@ -121,9 +122,7 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
                     variant="ghost"
                     className="w-full justify-start text-left bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 font-mono text-xs py-3 h-auto rounded-lg border border-zinc-800/50 transition-all truncate"
                   >
-                    <svg className="w-4 h-4 mr-2 shrink-0 text-emerald-500/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
+                    <Folder className="w-4 h-4 mr-2 shrink-0 text-emerald-500/70" />
                     <span className="truncate">{folder}</span>
                   </Button>
                 ))}
@@ -158,9 +157,7 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
                     variant="ghost"
                     className="w-full justify-start text-left bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 font-mono text-xs py-3 h-auto rounded-lg border border-zinc-800/50 transition-all truncate"
                   >
-                    <svg className="w-4 h-4 mr-2 shrink-0 text-emerald-500/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
+                    <Folder className="w-4 h-4 mr-2 shrink-0 text-emerald-500/70" />
                     <span className="truncate">{folder}</span>
                   </Button>
                 ))}
@@ -213,9 +210,7 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
                       <span className="text-sm font-semibold text-zinc-200 truncate group-hover:text-emerald-400 transition-colors">{peer.name}</span>
                       <span className="text-[10px] text-zinc-500 font-mono truncate">{peer.ip}:{peer.port}</span>
                     </div>
-                    <svg className="w-5 h-5 text-zinc-600 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
+                    <ArrowRight className="w-5 h-5 text-zinc-600 group-hover:text-emerald-500 transition-colors" />
                   </div>
                 ))
               )}

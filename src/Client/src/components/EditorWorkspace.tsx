@@ -13,6 +13,8 @@ import { Annotation } from "@codemirror/state";
 
 export const remoteUpdateAnnotation = Annotation.define<boolean>();
 
+import { customLinkClickPlugin, codeBlockPlugin, customHighlight } from "./EditorExtensions";
+
 export function EditorWorkspace() {
   const { text: remoteText, setDocumentStats, isLoading, activeFile } = useDocumentStore();
   const { localText, setLocalText, remoteUpdateText, queueInsert, queueDelete } = useBufferedInput();
@@ -20,10 +22,6 @@ export function EditorWorkspace() {
   const textareaRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   
-  // Capture the text at mount time for this file. useMemo runs synchronously
-  // during render (not after, like useEffect), so the wrapper gets the correct
-  // content on its very first mount. The wrapper is uncontrolled — it only reads
-  // markdownSource once — so subsequent changes to localText are irrelevant here.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialMarkdown = useMemo(() => localText, [activeFile]);
 
@@ -129,9 +127,14 @@ export function EditorWorkspace() {
     }
   }, [editorView]);
 
-  // Memoize all props passed to the editor to prevent the React wrapper
-  // from re-configuring or re-mounting the editor on every keystroke render
-  const editorExtensions = useMemo(() => [captureViewExtension], [captureViewExtension]);
+  const editorTheme = useMemo(() => {
+    return EditorView.theme({
+      // We keep some global overrides just in case, but styling monospace block backgrounds fully requires targeting the lines.
+      // We will do that in CSS.
+    });
+  }, []);
+  
+  const editorExtensions = useMemo(() => [captureViewExtension, customHighlight, editorTheme, codeBlockPlugin, customLinkClickPlugin], [captureViewExtension, customHighlight, editorTheme]);
   const handleLinkClick = useCallback((url: string) => window.open(url, "_blank"), []);
 
   return (

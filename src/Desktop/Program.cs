@@ -22,6 +22,12 @@ internal class Program
         builder.Services.AddSingleton<DocumentManager>();
         builder.Services.AddSingleton<SyncManager>();
         builder.Services.AddSingleton<LanDiscoveryService>();
+        builder.Services.AddSingleton<PeerRouter>();
+        builder.Services.AddSingleton<PeerSyncHandler>();
+        builder.Services.AddSingleton<SignalProxyService>();
+        builder.Services.AddSingleton<StunDiagnosticService>();
+        builder.Services.AddSingleton<WebRtcPeerManager>();
+        builder.Services.AddSingleton<HeartbeatService>();
 
         builder.Services.AddCors(options =>
         {
@@ -32,6 +38,13 @@ internal class Program
         builder.Services.AddSignalR(options => { options.MaximumReceiveMessageSize = null; });
 
         var app = builder.Build();
+
+        // Run STUN diagnostic before anything WAN-related starts
+        var stunDiag = app.Services.GetRequiredService<StunDiagnosticService>();
+        _ = Task.Run(() => stunDiag.RunDiagnosticAsync());
+
+        var heartbeat = app.Services.GetRequiredService<HeartbeatService>();
+        heartbeat.Start();
 
         app.UseCors("AllowFrontend");
 
@@ -111,6 +124,7 @@ internal class Program
                         break;
                     case "openFolder":
                         _ = discoveryService.DisconnectFromPeerAsync();
+                        app.Services.GetRequiredService<WebRtcPeerManager>().DisconnectAll();
                         var paths = win.ShowOpenFolder();
                         if (paths != null && paths.Length > 0)
                         {
@@ -143,6 +157,7 @@ internal class Program
                         break;
                     case "closeFolder":
                         _ = discoveryService.DisconnectFromPeerAsync();
+                        app.Services.GetRequiredService<WebRtcPeerManager>().DisconnectAll();
                         discoveryService.StopAdvertising();
                         var stateToClear = app.Services.GetRequiredService<WorkspaceState>();
                         stateToClear.CurrentFolder = string.Empty;
@@ -150,6 +165,7 @@ internal class Program
                         break;
                     case "openRecent":
                         _ = discoveryService.DisconnectFromPeerAsync();
+                        app.Services.GetRequiredService<WebRtcPeerManager>().DisconnectAll();
                         var recentPath = msg.RootElement.GetProperty("path").GetString();
                         if (!string.IsNullOrEmpty(recentPath) && Directory.Exists(recentPath))
                         {

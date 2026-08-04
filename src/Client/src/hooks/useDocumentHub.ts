@@ -18,6 +18,8 @@ interface DocumentState {
   setIsLoading: (status: boolean) => void;
   documentStats: { words: number; chars: number; line: number; col: number };
   setDocumentStats: (stats: { words: number; chars: number; line: number; col: number }) => void;
+  wanPeers: any[];
+  setWanPeers: (peers: any[]) => void;
 }
 
 // Per-file document cache so tab switching is instant for already-loaded files.
@@ -48,6 +50,8 @@ export const useDocumentStore = create<DocumentState>((set) => ({
   setIsLoading: (status) => set({ isLoading: status }),
   documentStats: { words: 0, chars: 0, line: 1, col: 1 },
   setDocumentStats: (stats) => set({ documentStats: stats }),
+  wanPeers: [],
+  setWanPeers: (peers) => set({ wanPeers: peers }),
 }));
 
 // ─── Singleton SignalR connection ────────────────────────────────────

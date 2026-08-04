@@ -193,5 +193,51 @@ export const api = {
       console.error("Failed to update settings", e);
       return false;
     }
+  },
+
+  // STUN Diagnostic Status
+  getStunStatus: async (): Promise<{
+    complete: boolean;
+    natType: string;
+    canHolePunch: boolean;
+    servers: Array<{ url: string; reachable: boolean; latencyMs: number }>;
+  }> => {
+    const res = await fetch(`${BASE_URL}/api/stun/status`);
+    return res.json();
+  },
+
+  // WAN Token API
+  createWanOffer: async (): Promise<{token: string, pendingId: string}> => {
+    const res = await fetch(`${BASE_URL}/api/wan/create-offer`, { method: 'POST' });
+    return res.json();
+  },
+
+  acceptWanOffer: async (token: string): Promise<{ token: string }> => {
+    const res = await fetch(`${BASE_URL}/api/wan/accept-offer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    return res.json();
+  },
+
+  completeWanHandshake: async (token: string, pendingId: string): Promise<void> => {
+    await fetch(`${BASE_URL}/api/wan/complete-handshake`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, pendingId })
+    });
+  },
+
+  getWanPeers: async (): Promise<any[]> => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/wan/peers`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.error("Failed to fetch WAN peers", e);
+    }
+    return [];
   }
 };

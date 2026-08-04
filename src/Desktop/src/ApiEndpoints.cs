@@ -321,5 +321,40 @@ public static class ApiEndpoints
 
             return Results.Ok();
         });
+
+        // STUN Diagnostic Status
+        app.MapGet("/api/stun/status", (StunDiagnosticService stun) =>
+            Results.Ok(stun.GetStatusReport()));
+
+        // WAN Token Exchange
+        app.MapPost("/api/wan/create-offer", async (WebRtcPeerManager wrtc) =>
+        {
+            var res = await wrtc.CreateOfferTokenAsync();
+            return Results.Ok(new { token = res.Token, pendingId = res.PendingId });
+        });
+
+        app.MapPost("/api/wan/accept-offer", async (HttpRequest req, WebRtcPeerManager wrtc) =>
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonDocument.Parse(body);
+            var offerToken = data.RootElement.GetProperty("token").GetString()!;
+            var answerToken = await wrtc.AcceptOfferTokenAsync(offerToken);
+            return Results.Ok(new { token = answerToken });
+        });
+
+        app.MapPost("/api/wan/complete-handshake", async (HttpRequest req, WebRtcPeerManager wrtc) =>
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonDocument.Parse(body);
+            var answerToken = data.RootElement.GetProperty("token").GetString()!;
+            var pendingId = data.RootElement.GetProperty("pendingId").GetString()!;
+            await wrtc.CompleteHandshakeAsync(answerToken, pendingId);
+            return Results.Ok();
+        });
+
+        app.MapGet("/api/wan/peers", (WebRtcPeerManager wrtc) =>
+            Results.Ok(wrtc.GetConnectedWanPeers()));
     }
 }
