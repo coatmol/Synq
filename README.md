@@ -43,6 +43,14 @@ Synq operates as a strictly local peer-to-peer system. Each running instance of 
 
 ---
 
+## ⚠️ Networking Notice
+
+Synq is currently **strictly LAN-only** by design. Peer discovery relies on Multicast DNS (mDNS), which does not traverse the public internet. If you want to sync with peers outside your local network, you will need to port-forward your Synq port and share your public IP address (or a custom hostname/domain pointing to it) with your peers. **Be aware that this exposes your IP to anyone you share it with.** There is currently no built-in relay, NAT traversal, or tunneling mechanism.
+
+However, do note that this is only temporary, and that future versions of Synq will have some sort of method for secure connections between peers across the public internet.
+
+---
+
 ## Installation & Downloads
 
 Synq is available in two distinct flavors: the full **Desktop Application** and the **Headless Server** node.
