@@ -1,9 +1,10 @@
-import { Modal, Button, TextField, Label, Input, Description, Switch } from "@heroui/react";
+import {Modal, Button, TextField, Label, Input, Description, Switch} from "@heroui/react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { Settings, SlidersHorizontal } from "lucide-react";
 
 import { toast } from "sonner";
+import * as React from "react";
 
 export function SettingsModal() {
   const [isOpen, setIsOpen] = useState(false);

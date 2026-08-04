@@ -13,7 +13,7 @@ export function Topbar() {
 
   return (
     <div 
-      className="h-[42px] shrink-0 bg-[#09090b] flex items-center justify-between px-2 select-none z-50"
+      className="h-10.5 shrink-0 bg-[#09090b] flex items-center justify-between px-2 select-none z-50"
     >
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-4 pl-2">
@@ -35,6 +35,7 @@ export function Topbar() {
                 <Dropdown.Item key="open" onPress={() => sendMessage("openFolder")} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
                   Open Folder...
                 </Dropdown.Item>
+                {/*<SettingsModal />*/}
                 <Dropdown.Item key="close" onPress={() => { sendMessage("closeFolder"); setTimeout(() => window.location.reload(), 100); }} className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
                   Close folder
                 </Dropdown.Item>
