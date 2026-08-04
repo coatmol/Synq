@@ -93,7 +93,7 @@ internal class Program
 
         var window = new PhotinoWindow()
             .SetTitle("Synq - Local-First Markdown Editor")
-            .SetIconFile(Path.Combine(AppContext.BaseDirectory, "SynqWhite.ico"))
+            .SetIconFile(Path.Combine(AppContext.BaseDirectory, "Synq3.ico"))
             .SetSize(1280, 800)
             .Center()
             .SetContextMenuEnabled(false)

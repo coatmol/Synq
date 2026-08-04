@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="Assets/SynqWhite.png" alt="Synq Logo" width="128" />
+  <img src="Assets/Synq3.png" alt="Synq Logo" width="128" />
   <h1>Synq</h1>
 </div>
 
