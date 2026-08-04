@@ -5,16 +5,10 @@
 
 > A high-performance, local-first markdown editor and peer-to-peer knowledge workspace with zero server dependencies.
 
-[![CI](https://github.com/coatmol/Synq/actions/workflows/ci.yml/badge.svg)](https://github.com/coatmol/Synq/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/coatmol/Synq/actions/workflows/codeql.yml/badge.svg)](https://github.com/coatmol/Synq/actions/workflows/codeql.yml)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
 [![Windows](https://img.shields.io/github/actions/workflow/status/coatmol/Synq/release.yml?label=Windows&logo=windows)](https://github.com/coatmol/Synq/actions/workflows/release.yml)
 [![macOS](https://img.shields.io/github/actions/workflow/status/coatmol/Synq/release.yml?label=macOS&logo=apple)](https://github.com/coatmol/Synq/actions/workflows/release.yml)
 [![Linux](https://img.shields.io/github/actions/workflow/status/coatmol/Synq/release.yml?label=Linux&logo=linux)](https://github.com/coatmol/Synq/actions/workflows/release.yml)
-
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)
-![React](https://img.shields.io/badge/React-19.0-61DAFB.svg)
-![TypeScript](https://img.shields.io/badge/TypeScript-7.0-3178C6.svg)
 
 **Synq** is a zero-trust, local-first markdown editor and personal knowledge base built for absolute data sovereignty. Designed for taking interconnected notes and managing large collections of markdown documents locally, Synq gives you full ownership over your thoughts in plain text—with zero telemetry, zero tracking, and no required accounts.
 

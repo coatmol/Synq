@@ -1,0 +1,122 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior in Synq
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the sections below so we can reproduce and fix the issue as quickly as possible.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+      placeholder: Describe what went wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Exact steps to reproduce the behavior.
+      placeholder: |
+        1. Open Synq and navigate to '...'
+        2. Click on '...'
+        3. Type '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen.
+      placeholder: Describe what should have happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened instead.
+      placeholder: Describe what happened instead...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Docker / Headless Server
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS Version
+      description: e.g. Windows 11 23H2, macOS 15.1, Ubuntu 24.04
+      placeholder: Windows 11 23H2
+    validations:
+      required: true
+
+  - type: input
+    id: synq-version
+    attributes:
+      label: Synq Version
+      description: The version of Synq you're running (check the release tag or About screen).
+      placeholder: v1.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: flavor
+    attributes:
+      label: Synq Flavor
+      description: Which variant of Synq are you using?
+      options:
+        - Desktop Application
+        - Headless Server (Docker)
+        - Headless Server (Binary)
+        - Built from Source
+    validations:
+      required: true
+
+  - type: dropdown
+    id: peer-sync
+    attributes:
+      label: Is this related to peer sync?
+      description: Does this bug involve connecting to or syncing with another peer?
+      options:
+        - "No — single device only"
+        - "Yes — syncing with another desktop instance"
+        - "Yes — syncing with a headless server"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Screenshots
+      description: Paste any console output, error messages, or attach screenshots that help illustrate the issue.
+      placeholder: Paste logs or drag-and-drop screenshots here...
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other context — network setup, number of peers, document size, etc.
+    validations:
+      required: false
