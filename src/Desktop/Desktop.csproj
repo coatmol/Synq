@@ -34,10 +34,11 @@
 
         <!-- Auto-detect package manager based on lockfiles -->
         <NodePackageManager Condition="Exists('$(FrontendRoot)bun.lockb')">bun</NodePackageManager>
+        <NodePackageManager Condition="Exists('$(FrontendRoot)bun.lock')">bun</NodePackageManager>
         <NodePackageManager Condition="Exists('$(FrontendRoot)pnpm-lock.yaml')">pnpm</NodePackageManager>
         <NodePackageManager Condition="Exists('$(FrontendRoot)yarn.lock')">yarn</NodePackageManager>
-        <!-- Fallback to npm if nothing else is found -->
-        <NodePackageManager Condition="'$(NodePackageManager)' == ''">npm</NodePackageManager>
+        <!-- Fallback to bun if nothing else is found -->
+        <NodePackageManager Condition="'$(NodePackageManager)' == ''">bun</NodePackageManager>
     </PropertyGroup>
 
     <!-- Run build using the detected package manager -->
