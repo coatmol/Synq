@@ -240,6 +240,13 @@ public class WebRtcPeerManager
             Console.WriteLine($"[WAN] DataChannel open with {peer.PeerId}");
             // Broadcast PEER_DISCOVERY so new peer learns about existing mesh
             _ = BroadcastPeerDiscovery();
+            
+            // Request full file manifest for initial sync
+            _ = _router.SendToAsync(peer.PeerId, new MeshEnvelope
+            {
+                Type = MeshMessageType.MANIFEST_REQUEST,
+                SenderId = _localPeerId
+            });
         };
 
         peer.DataChannel.onmessage += (dc, protocol, data) =>
