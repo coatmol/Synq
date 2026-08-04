@@ -7,6 +7,12 @@ builder.Services.AddSingleton<WorkspaceState>();
 builder.Services.AddSingleton<DocumentManager>();
 builder.Services.AddSingleton<SyncManager>();
 builder.Services.AddSingleton<LanDiscoveryService>();
+builder.Services.AddSingleton<PeerRouter>();
+builder.Services.AddSingleton<PeerSyncHandler>();
+builder.Services.AddSingleton<SignalProxyService>();
+builder.Services.AddSingleton<StunDiagnosticService>();
+builder.Services.AddSingleton<WebRtcPeerManager>();
+builder.Services.AddSingleton<HeartbeatService>();
 builder.Services.AddSignalR(options => { options.MaximumReceiveMessageSize = null; });
 builder.Services.AddCors(options =>
 {
@@ -14,6 +20,13 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Run STUN diagnostic before anything WAN-related starts
+var stunDiag = app.Services.GetRequiredService<StunDiagnosticService>();
+_ = Task.Run(() => stunDiag.RunDiagnosticAsync());
+
+var heartbeat = app.Services.GetRequiredService<HeartbeatService>();
+heartbeat.Start();
 
 app.UseCors("AllowAll");
 

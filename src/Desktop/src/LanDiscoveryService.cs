@@ -21,11 +21,16 @@ public class LanDiscoveryService : IDisposable
     private ServiceDiscovery? _serviceDiscovery;
     private ServiceProfile? _serviceProfile;
 
-    public LanDiscoveryService(DocumentManager manager, SyncManager syncManager, WorkspaceState workspaceState)
+    private readonly PeerRouter _router;
+    private readonly PeerSyncHandler _syncHandler;
+
+    public LanDiscoveryService(DocumentManager manager, SyncManager syncManager, WorkspaceState workspaceState, PeerRouter router, PeerSyncHandler syncHandler)
     {
         _manager = manager;
         _syncManager = syncManager;
         _workspaceState = workspaceState;
+        _router = router;
+        _syncHandler = syncHandler;
     }
 
     public int Port { get; private set; }
@@ -213,64 +218,33 @@ public class LanDiscoveryService : IDisposable
 
                 PeerConnection.On<string, List<CharNode>>("SyncNodes", async (filename, nodes) =>
                 {
-                    var seq = _manager.GetOrCreateDocument(filename);
-                    foreach (var node in nodes) seq.RemoteMerge(node);
-                    _manager.SaveToDisk(filename);
-                    await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, seq.ToString());
+                    await _syncHandler.HandleSyncNodes(filename, nodes);
                 });
 
                 PeerConnection.On<string, string>("ItemRenamed", async (oldPath, newPath) =>
                 {
-                    var oldAbs = PathUtils.GetSafePath(_workspaceState.CurrentFolder, oldPath);
-                    var newAbs = PathUtils.GetSafePath(_workspaceState.CurrentFolder, newPath);
-                    if (oldAbs == null || newAbs == null) return;
-                    if (File.Exists(oldAbs))
-                    {
-                        var dir = Path.GetDirectoryName(newAbs);
-                        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                        File.Move(oldAbs, newAbs);
-                    }
-                    else if (Directory.Exists(oldAbs))
-                    {
-                        Directory.Move(oldAbs, newAbs);
-                    }
-
-                    _syncManager.InitializeLocalFolder();
-                    await hubContext.Clients.All.SendAsync("ItemRenamed", oldPath, newPath);
+                    await _syncHandler.HandleFileEvent("ItemRenamed", new[] { JsonSerializer.SerializeToElement(oldPath), JsonSerializer.SerializeToElement(newPath) });
                 });
 
                 PeerConnection.On<string>("ItemDeleted", async path =>
                 {
-                    var filePath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, path);
-                    if (filePath == null) return;
-                    if (File.Exists(filePath)) File.Delete(filePath);
-                    else if (Directory.Exists(filePath)) Directory.Delete(filePath, true);
-                    _syncManager.InitializeLocalFolder();
-                    await hubContext.Clients.All.SendAsync("ItemDeleted", path);
+                    await _syncHandler.HandleFileEvent("ItemDeleted", new[] { JsonSerializer.SerializeToElement(path) });
                 });
 
                 PeerConnection.On<string>("FileCreated", async filename =>
                 {
-                    var filePath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, filename);
-                    if (filePath == null) return;
-                    var dir = Path.GetDirectoryName(filePath);
-                    if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                    if (!File.Exists(filePath))
-                        await File.WriteAllTextAsync(filePath, "# " + Path.GetFileNameWithoutExtension(filename));
-                    _syncManager.InitializeLocalFolder();
-                    await hubContext.Clients.All.SendAsync("FileCreated", filename);
+                    await _syncHandler.HandleFileEvent("FileCreated", new[] { JsonSerializer.SerializeToElement(filename) });
                 });
 
                 PeerConnection.On<string>("FolderCreated", async path =>
                 {
-                    var dirPath = PathUtils.GetSafePath(_workspaceState.CurrentFolder, path);
-                    if (dirPath == null) return;
-                    if (!Directory.Exists(dirPath)) Directory.CreateDirectory(dirPath);
-                    _syncManager.InitializeLocalFolder();
-                    await hubContext.Clients.All.SendAsync("FolderCreated", path);
+                    await _syncHandler.HandleFileEvent("FolderCreated", new[] { JsonSerializer.SerializeToElement(path) });
                 });
 
                 await PeerConnection.StartAsync();
+                
+                var transport = new LanSignalRTransport($"lan-{ip}:{port}", PeerConnection);
+                _router.Register(transport);
                 return true;
             }
         }
@@ -281,4 +255,26 @@ public class LanDiscoveryService : IDisposable
 
         return false;
     }
+}
+
+public class LanSignalRTransport : IPeerTransport
+{
+    public string TransportId { get; }
+    public HubConnection Connection { get; }
+    public bool IsConnected => Connection.State == HubConnectionState.Connected;
+
+    public LanSignalRTransport(string id, HubConnection connection)
+    {
+        TransportId = id;
+        Connection = connection;
+    }
+
+    public async Task SendSyncNodesAsync(string filename, List<CharNode> nodes)
+        => await Connection.SendAsync("SyncNodes", filename, nodes);
+
+    public async Task SendFileEventAsync(string eventName, params object[] args)
+        => await Connection.SendAsync(eventName, args);
+
+    public Task SendEnvelopeAsync(MeshEnvelope envelope)
+        => Task.CompletedTask; // LAN peers don't use envelope protocol
 }

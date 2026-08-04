@@ -1,10 +1,12 @@
-import { Avatar, Tooltip } from "@heroui/react";
+import { Avatar, Tooltip, Button } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { WanTokenModal } from "./WanTokenModal";
 
 export function LanPeersPanel() {
-  const [peers, setPeers] = useState<any[]>([]);
+  const [wanPeers, setWanPeers] = useState<any[]>([]);
   const [self, setSelf] = useState<any>(null);
+  const [isWanModalOpen, setIsWanModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchSelf = async () => {
@@ -23,8 +25,8 @@ export function LanPeersPanel() {
     fetchSelf();
 
     const fetchPeers = async () => {
-      const data = await api.getPeers();
-      setPeers(data);
+      const wanData = await api.getWanPeers();
+      setWanPeers(wanData);
     };
     fetchPeers();
     const interval = setInterval(fetchPeers, 5000);
@@ -34,30 +36,46 @@ export function LanPeersPanel() {
   return (
     <div className="flex items-center gap-2 pr-2">
       <div className="flex items-center -space-x-1.5 overflow-hidden px-2 py-1">
-        {peers.length === 0 && <span className="text-[10px] text-zinc-500 mr-2">No peers found</span>}
-        {[self, ...peers].filter(Boolean).map(peer => (
+        {/* Only show SELF and ACTUALLY CONNECTED WAN PEERS as active avatars in the editor header */}
+        {[self, ...wanPeers.map(p => ({...p, isWan: true}))].filter(Boolean).map(peer => (
           <Tooltip key={peer.id} delay={0} closeDelay={0}>
             <Tooltip.Trigger>
               <div 
                 className={`relative inline-block rounded-full ring-2 ring-zinc-950 transition-transform hover:-translate-y-0.5 hover:z-10 cursor-default ${peer.status === 'offline' ? 'opacity-50 grayscale' : ''}`}
               >
-                <Avatar size="sm" color={peer.id === 'self' ? 'accent' : peer.status === 'online' ? 'success' : 'default'} className={peer.id === 'self' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-300'}>
-                  <Avatar.Fallback>{peer.init}</Avatar.Fallback>
+                <Avatar size="sm" color={peer.id === 'self' ? 'accent' : peer.isWan ? 'default' : peer.status === 'online' ? 'success' : 'default'} className={peer.id === 'self' ? 'bg-indigo-600 text-white' : peer.isWan ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-300'}>
+                  <Avatar.Fallback>{peer.init || peer.id.substring(0,2).toUpperCase()}</Avatar.Fallback>
                 </Avatar>
                 {peer.status === 'online' && (
-                  <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ring-2 ring-zinc-950 ${peer.id === 'self' ? 'bg-indigo-400' : 'bg-emerald-500'}`} />
+                  <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ring-2 ring-zinc-950 ${peer.id === 'self' ? 'bg-indigo-400' : peer.isWan ? 'bg-blue-400' : 'bg-emerald-500'}`} />
                 )}
               </div>
             </Tooltip.Trigger>
             <Tooltip.Content placement="bottom" className="bg-zinc-900 border border-zinc-800 text-zinc-200">
               <div className="flex flex-col gap-0.5 p-1">
-                <span className="text-sm font-semibold">{peer.name}</span>
-                <span className="text-[10px] text-zinc-500 font-mono">{peer.ip}:{peer.port}</span>
+                <span className="text-sm font-semibold">{peer.name || peer.id} {peer.isWan ? '(WAN)' : ''}</span>
+                <span className="text-[10px] text-zinc-500 font-mono">{peer.ip ? `${peer.ip}:${peer.port}` : 'Local Client'}</span>
               </div>
             </Tooltip.Content>
           </Tooltip>
         ))}
       </div>
+      
+      {/* Network / Connect Buttons */}
+      <div className="flex items-center ml-1 border-l border-zinc-800/50 pl-2 gap-1">
+        <Tooltip delay={0} closeDelay={0}>
+          <Tooltip.Trigger>
+            <Button isIconOnly size="sm" variant="secondary" onPress={() => setIsWanModalOpen(true)} className="rounded-full w-8 h-8 min-w-8 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/50 transition-all" aria-label="Add WAN Peer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+            </Button>
+          </Tooltip.Trigger>
+          <Tooltip.Content placement="bottom" className="bg-zinc-900 border border-zinc-800 text-zinc-200 p-1 px-2 text-xs">
+            Connect via WAN (WebRTC)
+          </Tooltip.Content>
+        </Tooltip>
+      </div>
+
+      <WanTokenModal isOpen={isWanModalOpen} onClose={() => setIsWanModalOpen(false)} />
     </div>
   );
 }

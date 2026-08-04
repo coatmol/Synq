@@ -7,10 +7,12 @@ namespace Desktop;
 public class DocumentHub : Hub
 {
     private readonly DocumentManager _manager;
+    private readonly PeerRouter _router;
 
-    public DocumentHub(DocumentManager manager)
+    public DocumentHub(DocumentManager manager, PeerRouter router)
     {
         _manager = manager;
+        _router = router;
     }
 
     public async Task InsertCharacter(string filename, int index, char value)
@@ -20,7 +22,7 @@ public class DocumentHub : Hub
         _manager.SaveToDisk(filename);
         await Clients.Others.SendAsync("DocumentUpdated", filename, seq.ToString());
         await Clients.Others.SendAsync("SyncNodes", filename, new List<CharNode> { node });
-        await ForwardNodesToPeer(filename, new List<CharNode> { node });
+        await _router.BroadcastSyncNodesAsync(filename, new List<CharNode> { node });
     }
 
     public async Task InsertText(string filename, int index, string value)
@@ -30,7 +32,7 @@ public class DocumentHub : Hub
         _manager.SaveToDisk(filename);
         await Clients.Others.SendAsync("DocumentUpdated", filename, seq.ToString());
         await Clients.Others.SendAsync("SyncNodes", filename, nodes);
-        await ForwardNodesToPeer(filename, nodes);
+        await _router.BroadcastSyncNodesAsync(filename, nodes);
     }
 
     public async Task DeleteCharacter(string filename, int index)
@@ -42,7 +44,7 @@ public class DocumentHub : Hub
         if (node != null)
         {
             await Clients.Others.SendAsync("SyncNodes", filename, new List<CharNode> { node.Value });
-            await ForwardNodesToPeer(filename, new List<CharNode> { node.Value });
+            await _router.BroadcastSyncNodesAsync(filename, new List<CharNode> { node.Value });
         }
     }
 
@@ -53,7 +55,7 @@ public class DocumentHub : Hub
         _manager.SaveToDisk(filename);
         await Clients.Others.SendAsync("DocumentUpdated", filename, seq.ToString());
         await Clients.Others.SendAsync("SyncNodes", filename, nodes);
-        await ForwardNodesToPeer(filename, nodes);
+        await _router.BroadcastSyncNodesAsync(filename, nodes);
     }
 
     public async Task SyncNodes(string filename, List<CharNode> nodes)
@@ -63,21 +65,6 @@ public class DocumentHub : Hub
         _manager.SaveToDisk(filename);
         await Clients.Others.SendAsync("DocumentUpdated", filename, seq.ToString());
         await Clients.Others.SendAsync("SyncNodes", filename, nodes);
-    }
-
-    private async Task ForwardNodesToPeer(string filename, List<CharNode> nodes)
-    {
-        var httpContext = Context.GetHttpContext();
-        if (httpContext == null) return;
-        var discovery = httpContext.RequestServices.GetService<LanDiscoveryService>();
-        if (discovery?.PeerConnection != null)
-            try
-            {
-                await discovery.PeerConnection.SendAsync("SyncNodes", filename, nodes);
-            }
-            catch
-            {
-            }
     }
 
     public async Task ItemRenamed(string oldPath, string newPath)
