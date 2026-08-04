@@ -9,10 +9,10 @@ namespace Desktop;
 
 public class WebRtcPeer : IPeerTransport
 {
-    public string TransportId => PeerId;
     public string PeerId { get; set; } = "";
     public RTCPeerConnection Connection { get; set; } = null!;
     public RTCDataChannel? DataChannel { get; set; }
+    public string TransportId => PeerId;
     public bool IsConnected => DataChannel?.readyState == RTCDataChannelState.open;
 
     public async Task SendSyncNodesAsync(string filename, List<CharNode> nodes)
@@ -47,13 +47,13 @@ public class WebRtcPeer : IPeerTransport
 
 public class WebRtcPeerManager
 {
+    private readonly string _localPeerId;
     private readonly ConcurrentDictionary<string, WebRtcPeer> _peers = new();
     private readonly PeerRouter _router;
-    private readonly PeerSyncHandler _syncHandler;
     private readonly SignalProxyService _signalProxy;
-    private readonly string _localPeerId;
 
     private readonly StunDiagnosticService _stunDiag;
+    private readonly PeerSyncHandler _syncHandler;
 
     public WebRtcPeerManager(
         PeerRouter router,
@@ -70,7 +70,7 @@ public class WebRtcPeerManager
     }
 
     /// <summary>
-    /// Host: Create an SDP Offer token for a new peer.
+    ///     Host: Create an SDP Offer token for a new peer.
     /// </summary>
     public async Task<(string Token, string PendingId)> CreateOfferTokenAsync()
     {
@@ -97,7 +97,7 @@ public class WebRtcPeerManager
     }
 
     /// <summary>
-    /// Guest: Receive an offer token, produce an answer token.
+    ///     Guest: Receive an offer token, produce an answer token.
     /// </summary>
     public async Task<string> AcceptOfferTokenAsync(string offerToken)
     {
@@ -107,7 +107,7 @@ public class WebRtcPeerManager
         var pc = CreatePeerConnection();
         var remotePeerId = offer.PeerId;
 
-        pc.ondatachannel += (dc) =>
+        pc.ondatachannel += dc =>
         {
             var peer = _peers.GetValueOrDefault(remotePeerId);
             if (peer != null)
@@ -143,7 +143,7 @@ public class WebRtcPeerManager
     }
 
     /// <summary>
-    /// Host: Complete handshake with the guest's answer token.
+    ///     Host: Complete handshake with the guest's answer token.
     /// </summary>
     public async Task CompleteHandshakeAsync(string answerToken, string pendingId)
     {
@@ -179,7 +179,7 @@ public class WebRtcPeerManager
         };
         var pc = new RTCPeerConnection(config);
 
-        pc.onconnectionstatechange += (state) =>
+        pc.onconnectionstatechange += state =>
         {
             var entry = _peers.FirstOrDefault(p => p.Value.Connection == pc);
 
@@ -213,7 +213,10 @@ public class WebRtcPeerManager
                             }
                         }
                     }
-                    catch { /* ICE restart not supported or peer gone */ }
+                    catch
+                    {
+                        /* ICE restart not supported or peer gone */
+                    }
                 });
             }
             else if (state == RTCPeerConnectionState.failed)
@@ -240,7 +243,7 @@ public class WebRtcPeerManager
             Console.WriteLine($"[WAN] DataChannel open with {peer.PeerId}");
             // Broadcast PEER_DISCOVERY so new peer learns about existing mesh
             _ = BroadcastPeerDiscovery();
-            
+
             // Request full file manifest for initial sync
             _ = _router.SendToAsync(peer.PeerId, new MeshEnvelope
             {
@@ -313,6 +316,7 @@ public class WebRtcPeerManager
                     leftPeer.Connection.close();
                     _router.Unregister(leftPeerId);
                 }
+
                 break;
 
             case MeshMessageType.MANIFEST_REQUEST:
@@ -367,7 +371,8 @@ public class WebRtcPeerManager
                 status = "online",
                 transport = "wan",
                 init = p.PeerId.Length >= 2
-                    ? p.PeerId[..2].ToUpper() : "??"
+                    ? p.PeerId[..2].ToUpper()
+                    : "??"
             });
     }
 
@@ -380,16 +385,22 @@ public class WebRtcPeerManager
                 peer.DataChannel?.close();
                 peer.Connection?.close();
             }
-            catch { /* ignore */ }
+            catch
+            {
+                /* ignore */
+            }
+
             _router.Unregister(peer.PeerId);
         }
+
         _peers.Clear();
     }
 }
 
 // Payload DTOs for deserialization
 public record CrdtDeltaPayload(
-    [property: JsonPropertyName("filename")] string Filename,
+    [property: JsonPropertyName("filename")]
+    string Filename,
     [property: JsonPropertyName("nodes")] List<CharNode> Nodes);
 
 public record FileEventPayload(

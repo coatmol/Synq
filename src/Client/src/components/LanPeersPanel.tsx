@@ -2,6 +2,7 @@ import { Avatar, Tooltip, Button } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { WanTokenModal } from "./WanTokenModal";
+import { PlusCircle } from "lucide-react";
 
 export function LanPeersPanel() {
   const [wanPeers, setWanPeers] = useState<any[]>([]);
@@ -36,7 +37,6 @@ export function LanPeersPanel() {
   return (
     <div className="flex items-center gap-2 pr-2">
       <div className="flex items-center -space-x-1.5 overflow-hidden px-2 py-1">
-        {/* Only show SELF and ACTUALLY CONNECTED WAN PEERS as active avatars in the editor header */}
         {[self, ...wanPeers.map(p => ({...p, isWan: true}))].filter(Boolean).map(peer => (
           <Tooltip key={peer.id} delay={0} closeDelay={0}>
             <Tooltip.Trigger>
@@ -62,11 +62,11 @@ export function LanPeersPanel() {
       </div>
       
       {/* Network / Connect Buttons */}
-      <div className="flex items-center ml-1 border-l border-zinc-800/50 pl-2 gap-1">
+      <div className="flex items-center border-zinc-800/50 pl-2 gap-1">
         <Tooltip delay={0} closeDelay={0}>
           <Tooltip.Trigger>
             <Button isIconOnly size="sm" variant="secondary" onPress={() => setIsWanModalOpen(true)} className="rounded-full w-8 h-8 min-w-8 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/50 transition-all" aria-label="Add WAN Peer">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+              <PlusCircle className="w-4 h-4" />
             </Button>
           </Tooltip.Trigger>
           <Tooltip.Content placement="bottom" className="bg-zinc-900 border border-zinc-800 text-zinc-200 p-1 px-2 text-xs">

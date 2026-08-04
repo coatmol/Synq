@@ -6,11 +6,11 @@ namespace Desktop;
 
 public class PeerSyncHandler
 {
-    private readonly DocumentManager _manager;
-    private readonly SyncManager _syncManager;
-    private readonly WorkspaceState _state;
     private readonly IHubContext<DocumentHub> _hubContext;
+    private readonly DocumentManager _manager;
     private readonly PeerRouter _router;
+    private readonly WorkspaceState _state;
+    private readonly SyncManager _syncManager;
 
     public PeerSyncHandler(
         DocumentManager manager,
@@ -55,11 +55,15 @@ public class PeerSyncHandler
                             File.Move(oldAbs, newAbs);
                         }
                         else if (Directory.Exists(oldAbs))
+                        {
                             Directory.Move(oldAbs, newAbs);
+                        }
                     }
+
                     _syncManager.InitializeLocalFolder();
                     await _hubContext.Clients.All.SendAsync("ItemRenamed", oldPath, newPath);
                 }
+
                 break;
 
             case "ItemDeleted":
@@ -72,9 +76,11 @@ public class PeerSyncHandler
                         if (File.Exists(filePath)) File.Delete(filePath);
                         else if (Directory.Exists(filePath)) Directory.Delete(filePath, true);
                     }
+
                     _syncManager.InitializeLocalFolder();
                     await _hubContext.Clients.All.SendAsync("ItemDeleted", path);
                 }
+
                 break;
 
             case "FileCreated":
@@ -91,9 +97,11 @@ public class PeerSyncHandler
                             await File.WriteAllTextAsync(fp,
                                 "# " + Path.GetFileNameWithoutExtension(filename2));
                     }
+
                     _syncManager.InitializeLocalFolder();
                     await _hubContext.Clients.All.SendAsync("FileCreated", filename2);
                 }
+
                 break;
 
             case "FolderCreated":
@@ -106,13 +114,14 @@ public class PeerSyncHandler
                     _syncManager.InitializeLocalFolder();
                     await _hubContext.Clients.All.SendAsync("FolderCreated", dirPath2);
                 }
+
                 break;
         }
     }
 
     /// <summary>
-    /// Handle a manifest request from a WAN peer —
-    /// serialize and send back over DataChannel.
+    ///     Handle a manifest request from a WAN peer —
+    ///     serialize and send back over DataChannel.
     /// </summary>
     public async Task HandleManifestRequest(string fromPeerId)
     {
@@ -154,17 +163,15 @@ public class PeerSyncHandler
                 if (localEntry.IsTombstone && !remoteEntry.IsTombstone)
                 {
                     if (localEntry.UpdatedAt > remoteEntry.UpdatedAt)
-                    {
                         // We deleted it more recently, tell remote to delete
                         await _router.SendToAsync(fromPeerId, new MeshEnvelope
                         {
                             Type = MeshMessageType.FILE_EVENT,
                             SenderId = _router.LocalPeerId,
-                            Payload = JsonSerializer.Serialize(new { @event = "ItemDeleted", args = new[] { remoteEntry.RelativePath } })
+                            Payload = JsonSerializer.Serialize(new
+                                { @event = "ItemDeleted", args = new[] { remoteEntry.RelativePath } })
                         });
-                    }
                     else
-                    {
                         // They have a newer file, request it
                         await _router.SendToAsync(fromPeerId, new MeshEnvelope
                         {
@@ -172,7 +179,6 @@ public class PeerSyncHandler
                             SenderId = _router.LocalPeerId,
                             Payload = remoteEntry.RelativePath
                         });
-                    }
                 }
                 else if (!localEntry.IsTombstone && remoteEntry.IsTombstone)
                 {
@@ -195,7 +201,6 @@ public class PeerSyncHandler
                 else if (!localEntry.IsTombstone && !remoteEntry.IsTombstone)
                 {
                     if (remoteEntry.UpdatedAt > localEntry.UpdatedAt)
-                    {
                         // They have newer version, request it
                         await _router.SendToAsync(fromPeerId, new MeshEnvelope
                         {
@@ -203,26 +208,20 @@ public class PeerSyncHandler
                             SenderId = _router.LocalPeerId,
                             Payload = remoteEntry.RelativePath
                         });
-                    }
                     else
-                    {
                         // We have newer version, push it
                         await PushFileToWanPeer(fromPeerId, localEntry.RelativePath, localEntry.IsDirectory);
-                    }
                 }
             }
             else if (hasLocal && !hasRemote)
             {
                 if (!localEntry!.IsTombstone)
-                {
                     // They are missing it, push it
                     await PushFileToWanPeer(fromPeerId, localEntry.RelativePath, localEntry.IsDirectory);
-                }
             }
             else if (!hasLocal && hasRemote)
             {
                 if (!remoteEntry!.IsTombstone)
-                {
                     // We are missing it, request it
                     await _router.SendToAsync(fromPeerId, new MeshEnvelope
                     {
@@ -230,10 +229,9 @@ public class PeerSyncHandler
                         SenderId = _router.LocalPeerId,
                         Payload = remoteEntry.RelativePath
                     });
-                }
             }
         }
-        
+
         // Use reflection or make SaveManifest public? SyncManager handles SaveManifest.
         // For simplicity, we just rely on the next Initialization/Save or we can just let HandleFileResponse update the manifest when the files arrive.
     }
@@ -244,9 +242,9 @@ public class PeerSyncHandler
         var content = "";
         if (!isDirectory && File.Exists(path))
             content = await File.ReadAllTextAsync(path);
-        else if (!isDirectory) return; 
+        else if (!isDirectory) return;
 
-        if (isDirectory && !Directory.Exists(path)) return; 
+        if (isDirectory && !Directory.Exists(path)) return;
 
         await _router.SendToAsync(toPeerId, new MeshEnvelope
         {
@@ -276,7 +274,7 @@ public class PeerSyncHandler
     {
         var data = JsonSerializer.Deserialize<JsonElement>(payload);
         var filename = data.GetProperty("filename").GetString();
-        
+
         var isDirectory = false;
         if (data.TryGetProperty("isDirectory", out var isDirProp))
             isDirectory = isDirProp.GetBoolean();

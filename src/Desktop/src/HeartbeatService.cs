@@ -5,7 +5,12 @@ public class HeartbeatService : IDisposable
     private readonly PeerRouter _router;
     private Timer? _timer;
 
-    public HeartbeatService(PeerRouter router) => _router = router;
+    public HeartbeatService(PeerRouter router)
+    {
+        _router = router;
+    }
+
+    public void Dispose() => _timer?.Dispose();
 
     public void Start()
     {
@@ -18,6 +23,4 @@ public class HeartbeatService : IDisposable
             });
         }, null, 10_000, 10_000);
     }
-
-    public void Dispose() => _timer?.Dispose();
 }

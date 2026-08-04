@@ -12,17 +12,15 @@ public class SignalProxyService
     }
 
     /// <summary>
-    /// Route signaling messages (OFFER/ANSWER/ICE) to the target peer,
-    /// tunneled through this node's existing DataChannels.
+    ///     Route signaling messages (OFFER/ANSWER/ICE) to the target peer,
+    ///     tunneled through this node's existing DataChannels.
     /// </summary>
     public async Task HandleSignalingMessage(string fromPeerId, MeshEnvelope envelope)
     {
         if (envelope.TargetId == _router.LocalPeerId)
-        {
             // This signaling message is FOR us — handle the WebRTC negotiation
             // (Handled by WebRtcPeerManager directly)
             return;
-        }
 
         // Relay to the target peer
         if (!string.IsNullOrEmpty(envelope.TargetId))
@@ -30,8 +28,8 @@ public class SignalProxyService
     }
 
     /// <summary>
-    /// When a peer broadcasts its known peer list, negotiate connections
-    /// with any peers we don't know about yet.
+    ///     When a peer broadcasts its known peer list, negotiate connections
+    ///     with any peers we don't know about yet.
     /// </summary>
     public async Task HandlePeerDiscovery(string fromPeerId, MeshEnvelope envelope)
     {

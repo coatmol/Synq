@@ -1,16 +1,18 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using SIPSorcery.Net;
 
 namespace Desktop;
 
 public enum NatType
 {
     Unknown,
-    Open,           // No NAT — public IP matches local IP
-    FullCone,       // STUN works perfectly, hole-punching reliable
-    Restricted,     // STUN works, hole-punching usually works
-    Symmetric       // Different public port per destination — STUN alone won't work
+    Open, // No NAT — public IP matches local IP
+    FullCone, // STUN works perfectly, hole-punching reliable
+    Restricted, // STUN works, hole-punching usually works
+    Symmetric // Different public port per destination — STUN alone won't work
 }
 
 public class StunServerResult
@@ -33,28 +35,28 @@ public class StunDiagnosticService
     ];
 
     private readonly ConcurrentDictionary<string, StunServerResult> _results = new();
-    private NatType _detectedNatType = NatType.Unknown;
-    private bool _diagnosticComplete;
 
-    public NatType DetectedNatType => _detectedNatType;
-    public bool DiagnosticComplete => _diagnosticComplete;
+    public NatType DetectedNatType { get; private set; } = NatType.Unknown;
+
+    public bool DiagnosticComplete { get; private set; }
+
     public IReadOnlyDictionary<string, StunServerResult> Results => _results;
 
     /// <summary>
-    /// Returns only the STUN servers that responded successfully,
-    /// formatted as RTCIceServer URLs for SIPSorcery.
+    ///     Returns only the STUN servers that responded successfully,
+    ///     formatted as RTCIceServer URLs for SIPSorcery.
     /// </summary>
-    public SIPSorcery.Net.RTCIceServer[] GetAvailableIceServers()
+    public RTCIceServer[] GetAvailableIceServers()
     {
         return _results.Values
             .Where(r => r.IsReachable)
-            .Select(r => new SIPSorcery.Net.RTCIceServer { urls = r.Url })
+            .Select(r => new RTCIceServer { urls = r.Url })
             .ToArray();
     }
 
     /// <summary>
-    /// Run the full diagnostic. Called once on app startup.
-    /// Probes all STUN servers concurrently and determines NAT type.
+    ///     Run the full diagnostic. Called once on app startup.
+    ///     Probes all STUN servers concurrently and determines NAT type.
     /// </summary>
     public async Task RunDiagnosticAsync()
     {
@@ -69,7 +71,7 @@ public class StunDiagnosticService
 
         if (reflexiveEndpoints.Count == 0)
         {
-            _detectedNatType = NatType.Unknown;
+            DetectedNatType = NatType.Unknown;
         }
         else
         {
@@ -77,26 +79,20 @@ public class StunDiagnosticService
             var distinctPorts = reflexiveEndpoints.Select(e => e.Port).Distinct().ToList();
 
             if (distinctPorts.Count > 1)
-            {
                 // Different reflexive ports for different STUN servers = Symmetric NAT
-                _detectedNatType = NatType.Symmetric;
-            }
+                DetectedNatType = NatType.Symmetric;
             else if (distinctIps.Count == 1)
-            {
                 // Same IP, same port across all servers = Full Cone or Open
-                _detectedNatType = NatType.FullCone;
-            }
+                DetectedNatType = NatType.FullCone;
             else
-            {
-                _detectedNatType = NatType.Restricted;
-            }
+                DetectedNatType = NatType.Restricted;
         }
 
-        _diagnosticComplete = true;
+        DiagnosticComplete = true;
         var reachableCount = _results.Values.Count(r => r.IsReachable);
         Console.WriteLine($"[STUN] Diagnostic complete. " +
                           $"Reachable: {reachableCount}/{StunServers.Length}, " +
-                          $"NAT Type: {_detectedNatType}");
+                          $"NAT Type: {DetectedNatType}");
     }
 
     private async Task ProbeServerAsync(string host, int port)
@@ -123,15 +119,19 @@ public class StunDiagnosticService
             // Build a minimal STUN Binding Request (RFC 5389)
             // Header: Type (0x0001), Length (0), Magic Cookie (0x2112A442), Transaction ID (12 bytes)
             var request = new byte[20];
-            request[0] = 0x00; request[1] = 0x01; // Binding Request
-            request[2] = 0x00; request[3] = 0x00; // Length = 0
+            request[0] = 0x00;
+            request[1] = 0x01; // Binding Request
+            request[2] = 0x00;
+            request[3] = 0x00; // Length = 0
             // Magic Cookie
-            request[4] = 0x21; request[5] = 0x12;
-            request[6] = 0xA4; request[7] = 0x42;
+            request[4] = 0x21;
+            request[5] = 0x12;
+            request[6] = 0xA4;
+            request[7] = 0x42;
             // Transaction ID (random 12 bytes)
             Random.Shared.NextBytes(request.AsSpan(8, 12));
 
-            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var sw = Stopwatch.StartNew();
             await udp.SendAsync(request, request.Length, endpoint);
 
             var receiveTask = udp.ReceiveAsync();
@@ -158,8 +158,8 @@ public class StunDiagnosticService
     }
 
     /// <summary>
-    /// Parse XOR-MAPPED-ADDRESS (0x0020) attribute from a STUN response.
-    /// RFC 5389 Section 15.2.
+    ///     Parse XOR-MAPPED-ADDRESS (0x0020) attribute from a STUN response.
+    ///     RFC 5389 Section 15.2.
     /// </summary>
     private static IPEndPoint? ParseXorMappedAddress(byte[] response, byte[] magicAndTxn)
     {
@@ -193,7 +193,7 @@ public class StunDiagnosticService
             }
 
             // Pad to 4-byte boundary
-            offset += attrLen + ((4 - attrLen % 4) % 4);
+            offset += attrLen + (4 - attrLen % 4) % 4;
         }
 
         return null;
@@ -201,9 +201,9 @@ public class StunDiagnosticService
 
     public object GetStatusReport() => new
     {
-        complete = _diagnosticComplete,
-        natType = _detectedNatType.ToString(),
-        canHolePunch = _detectedNatType != NatType.Symmetric && _detectedNatType != NatType.Unknown,
+        complete = DiagnosticComplete,
+        natType = DetectedNatType.ToString(),
+        canHolePunch = DetectedNatType != NatType.Symmetric && DetectedNatType != NatType.Unknown,
         servers = _results.Values.Select(r => new
         {
             url = r.Url,

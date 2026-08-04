@@ -6,14 +6,13 @@ namespace Desktop;
 public class PeerRouter
 {
     private readonly ConcurrentDictionary<string, IPeerTransport> _transports = new();
-    private readonly string _localPeerId;
 
     public PeerRouter(WorkspaceState state)
     {
-        _localPeerId = state.Settings.Username + "-" + Environment.MachineName;
+        LocalPeerId = state.Settings.Username + "-" + Environment.MachineName;
     }
 
-    public string LocalPeerId => _localPeerId;
+    public string LocalPeerId { get; }
 
     public void Register(IPeerTransport transport)
         => _transports[transport.TransportId] = transport;
@@ -30,15 +29,27 @@ public class PeerRouter
     public async Task BroadcastSyncNodesAsync(string filename, List<CharNode> nodes)
     {
         foreach (var t in _transports.Values.Where(t => t.IsConnected))
-            try { await t.SendSyncNodesAsync(filename, nodes); }
-            catch { /* log */ }
+            try
+            {
+                await t.SendSyncNodesAsync(filename, nodes);
+            }
+            catch
+            {
+                /* log */
+            }
     }
 
     public async Task BroadcastFileEventAsync(string eventName, params object[] args)
     {
         foreach (var t in _transports.Values.Where(t => t.IsConnected))
-            try { await t.SendFileEventAsync(eventName, args); }
-            catch { /* log */ }
+            try
+            {
+                await t.SendFileEventAsync(eventName, args);
+            }
+            catch
+            {
+                /* log */
+            }
     }
 
     public async Task SendToAsync(string peerId, MeshEnvelope envelope)
@@ -50,7 +61,13 @@ public class PeerRouter
     public async Task BroadcastEnvelopeAsync(MeshEnvelope envelope)
     {
         foreach (var t in _transports.Values.Where(t => t.IsConnected))
-            try { await t.SendEnvelopeAsync(envelope); }
-            catch { /* log */ }
+            try
+            {
+                await t.SendEnvelopeAsync(envelope);
+            }
+            catch
+            {
+                /* log */
+            }
     }
 }

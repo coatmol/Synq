@@ -20,10 +20,6 @@ export function EditorWorkspace() {
   const textareaRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   
-  // Capture the text at mount time for this file. useMemo runs synchronously
-  // during render (not after, like useEffect), so the wrapper gets the correct
-  // content on its very first mount. The wrapper is uncontrolled — it only reads
-  // markdownSource once — so subsequent changes to localText are irrelevant here.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialMarkdown = useMemo(() => localText, [activeFile]);
 

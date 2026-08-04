@@ -259,22 +259,60 @@ export function FileTree() {
       onDragOver={handleDragOver}
       onDrop={(e) => handleDrop(e, '')}
     >
-      <div className="flex items-center justify-between mb-3 select-none px-4 pt-4 pb-2 border-b border-zinc-800/30">
-        <h2 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Document Tree</h2>
+      <div className="flex items-center justify-between mb-3 select-none px-2 pt-2 pb-2 border-b border-zinc-800/30">
+        <Dropdown>
+          <Dropdown.Trigger>
+            <Button 
+              variant="ghost"
+              className="border-none min-w-0 px-2 h-7 text-xs font-bold text-zinc-500 hover:text-zinc-300 uppercase tracking-widest hover:bg-zinc-800/50 rounded transition-colors focus:outline-none"
+            >
+              Workspace
+            </Button>
+          </Dropdown.Trigger>
+          <Dropdown.Popover className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-2xl v3 \'/min-w-50">
+            <Dropdown.Menu aria-label="File Options" className="p-1">
+              <Dropdown.Item key="new" onPress={() => window.dispatchEvent(new Event('trigger-new-file'))} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
+                New Document
+              </Dropdown.Item>
+              <Dropdown.Item key="open" onPress={() => {
+                if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
+                  (window as any).external.sendMessage(JSON.stringify({ action: "openFolder" }));
+                }
+              }} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
+                Open Folder...
+              </Dropdown.Item>
+              <Dropdown.Item key="close" onPress={() => {
+                if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
+                  (window as any).external.sendMessage(JSON.stringify({ action: "closeFolder" }));
+                  setTimeout(() => window.location.reload(), 100);
+                }
+              }} className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
+                Close folder
+              </Dropdown.Item>
+              <Dropdown.Item key="quit" onPress={() => {
+                if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
+                  (window as any).external.sendMessage(JSON.stringify({ action: "close" }));
+                }
+              }} className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
+                Quit Synq
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown.Popover>
+        </Dropdown>
         <div className="flex items-center gap-1">
           <button 
             onClick={(e) => { e.stopPropagation(); handleCreateFile(); }}
             className="text-zinc-500 hover:text-emerald-500 transition-colors p-1"
             title="New File"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
           </button>
           <button 
             onClick={(e) => { e.stopPropagation(); handleCreateFolder(); }}
             className="text-zinc-500 hover:text-emerald-500 transition-colors p-1"
             title="New Folder"
           >
-            <FolderPlus className="w-3.5 h-3.5" />
+            <FolderPlus className="w-4 h-4" />
           </button>
         </div>
       </div>

@@ -13,6 +13,9 @@ public class LanDiscoveryService : IDisposable
 {
     private readonly ConcurrentDictionary<string, (string IP, int Port)> _discoveredPeers = new();
     private readonly DocumentManager _manager;
+
+    private readonly PeerRouter _router;
+    private readonly PeerSyncHandler _syncHandler;
     private readonly SyncManager _syncManager;
     private readonly WorkspaceState _workspaceState;
     private bool _isAdvertising;
@@ -21,10 +24,8 @@ public class LanDiscoveryService : IDisposable
     private ServiceDiscovery? _serviceDiscovery;
     private ServiceProfile? _serviceProfile;
 
-    private readonly PeerRouter _router;
-    private readonly PeerSyncHandler _syncHandler;
-
-    public LanDiscoveryService(DocumentManager manager, SyncManager syncManager, WorkspaceState workspaceState, PeerRouter router, PeerSyncHandler syncHandler)
+    public LanDiscoveryService(DocumentManager manager, SyncManager syncManager, WorkspaceState workspaceState,
+        PeerRouter router, PeerSyncHandler syncHandler)
     {
         _manager = manager;
         _syncManager = syncManager;
@@ -216,33 +217,42 @@ public class LanDiscoveryService : IDisposable
                     .WithAutomaticReconnect()
                     .Build();
 
-                PeerConnection.On<string, List<CharNode>>("SyncNodes", async (filename, nodes) =>
-                {
-                    await _syncHandler.HandleSyncNodes(filename, nodes);
-                });
+                PeerConnection.On<string, List<CharNode>>("SyncNodes",
+                    async (filename, nodes) => { await _syncHandler.HandleSyncNodes(filename, nodes); });
 
-                PeerConnection.On<string, string>("ItemRenamed", async (oldPath, newPath) =>
-                {
-                    await _syncHandler.HandleFileEvent("ItemRenamed", new[] { JsonSerializer.SerializeToElement(oldPath), JsonSerializer.SerializeToElement(newPath) });
-                });
+                PeerConnection.On<string, string>("ItemRenamed",
+                    async (oldPath, newPath) =>
+                    {
+                        await _syncHandler.HandleFileEvent("ItemRenamed",
+                            new[]
+                            {
+                                JsonSerializer.SerializeToElement(oldPath), JsonSerializer.SerializeToElement(newPath)
+                            });
+                    });
 
-                PeerConnection.On<string>("ItemDeleted", async path =>
-                {
-                    await _syncHandler.HandleFileEvent("ItemDeleted", new[] { JsonSerializer.SerializeToElement(path) });
-                });
+                PeerConnection.On<string>("ItemDeleted",
+                    async path =>
+                    {
+                        await _syncHandler.HandleFileEvent("ItemDeleted",
+                            new[] { JsonSerializer.SerializeToElement(path) });
+                    });
 
-                PeerConnection.On<string>("FileCreated", async filename =>
-                {
-                    await _syncHandler.HandleFileEvent("FileCreated", new[] { JsonSerializer.SerializeToElement(filename) });
-                });
+                PeerConnection.On<string>("FileCreated",
+                    async filename =>
+                    {
+                        await _syncHandler.HandleFileEvent("FileCreated",
+                            new[] { JsonSerializer.SerializeToElement(filename) });
+                    });
 
-                PeerConnection.On<string>("FolderCreated", async path =>
-                {
-                    await _syncHandler.HandleFileEvent("FolderCreated", new[] { JsonSerializer.SerializeToElement(path) });
-                });
+                PeerConnection.On<string>("FolderCreated",
+                    async path =>
+                    {
+                        await _syncHandler.HandleFileEvent("FolderCreated",
+                            new[] { JsonSerializer.SerializeToElement(path) });
+                    });
 
                 await PeerConnection.StartAsync();
-                
+
                 var transport = new LanSignalRTransport($"lan-{ip}:{port}", PeerConnection);
                 _router.Register(transport);
                 return true;
@@ -259,15 +269,15 @@ public class LanDiscoveryService : IDisposable
 
 public class LanSignalRTransport : IPeerTransport
 {
-    public string TransportId { get; }
-    public HubConnection Connection { get; }
-    public bool IsConnected => Connection.State == HubConnectionState.Connected;
-
     public LanSignalRTransport(string id, HubConnection connection)
     {
         TransportId = id;
         Connection = connection;
     }
+
+    public HubConnection Connection { get; }
+    public string TransportId { get; }
+    public bool IsConnected => Connection.State == HubConnectionState.Connected;
 
     public async Task SendSyncNodesAsync(string filename, List<CharNode> nodes)
         => await Connection.SendAsync("SyncNodes", filename, nodes);

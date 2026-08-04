@@ -6,8 +6,6 @@ namespace Desktop;
 
 public class TokenService
 {
-    public record TokenPayload(string Sdp, string PeerId, string? WorkspaceId = null);
-
     public static string Compress(TokenPayload payload)
     {
         var json = JsonSerializer.Serialize(payload);
@@ -15,7 +13,9 @@ public class TokenService
 
         using var output = new MemoryStream();
         using (var brotli = new BrotliStream(output, CompressionLevel.SmallestSize))
+        {
             brotli.Write(bytes);
+        }
 
         return Convert.ToBase64String(output.ToArray())
             .Replace('+', '-').Replace('/', '_').TrimEnd('='); // URL-safe
@@ -47,4 +47,6 @@ public class TokenService
             return null;
         }
     }
+
+    public record TokenPayload(string Sdp, string PeerId, string? WorkspaceId = null);
 }
