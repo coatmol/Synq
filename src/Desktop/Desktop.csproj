@@ -10,6 +10,7 @@
         <Product>Synq</Product>
         <Company>Synq</Company>
         <ApplicationIcon>..\..\Assets\Synq3.ico</ApplicationIcon>
+        <AssemblyName>Synq</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>
