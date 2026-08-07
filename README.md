@@ -37,10 +37,14 @@ Synq operates as a strictly local peer-to-peer system. Each running instance of 
 
 ---
 
-*Disclaimer: Synq has not yet been battle-tested with a big number of people or large-scale network topologies. While the CRDT engine guarantees eventual consistency, you may experience unexpected edge cases in high-latency or highly-concurrent WAN environments.*
-
+> Disclaimer: Synq has not yet been tested with a big number of people. While the CRDT engine guarantees eventual consistency, you may experience unexpected edge cases in high-latency or highly-concurrent WAN environments.
 ---
 
+## Documentation
+
+For a detailed FAQ on how to connect peers over LAN and the Internet, as well as a Markdown cheat sheet, please check out the [User Guide](GUIDE.md).
+
+---
 ## Installation & Downloads
 
 Synq is available in two distinct flavors: the full **Desktop Application** and the **Headless Server** node.
