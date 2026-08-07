@@ -24,4 +24,37 @@
         <Compile Include="..\Desktop\src\**\*.cs"/>
     </ItemGroup>
 
+    <!-- NEW FRONTEND BUILD TARGETS -->
+    <PropertyGroup>
+        <FrontendRoot>..\Client\</FrontendRoot>
+        <NodePackageManager Condition="Exists('$(FrontendRoot)bun.lockb')">bun</NodePackageManager>
+        <NodePackageManager Condition="Exists('$(FrontendRoot)bun.lock')">bun</NodePackageManager>
+        <NodePackageManager Condition="Exists('$(FrontendRoot)pnpm-lock.yaml')">pnpm</NodePackageManager>
+        <NodePackageManager Condition="Exists('$(FrontendRoot)yarn.lock')">yarn</NodePackageManager>
+        <NodePackageManager Condition="'$(NodePackageManager)' == ''">npm</NodePackageManager>
+    </PropertyGroup>
+
+    <Target Name="BuildFrontend" BeforeTargets="Build">
+        <Message Importance="high" Text="Building frontend with $(NodePackageManager)..."/>
+        <Exec Command="$(NodePackageManager) install" WorkingDirectory="$(FrontendRoot)" Condition="!Exists('$(FrontendRoot)node_modules')"/>
+        <Exec Command="$(NodePackageManager) run build" WorkingDirectory="$(FrontendRoot)"/>
+    </Target>
+
+    <Target Name="CopyFrontendToOutput" AfterTargets="BuildFrontend;Build">
+        <ItemGroup>
+            <FrontendFiles Include="$(FrontendRoot)dist\**\*.*"/>
+        </ItemGroup>
+        <Copy SourceFiles="@(FrontendFiles)" DestinationFolder="$(OutDir)wwwroot\%(RecursiveDir)" SkipUnchangedFiles="true"/>
+    </Target>
+
+    <Target Name="PublishFrontend" BeforeTargets="ComputeFilesToPublish">
+        <ItemGroup>
+            <DistFiles Include="$(FrontendRoot)dist\**\*.*"/>
+            <ResolvedFileToPublish Include="@(DistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
+                <RelativePath>wwwroot\%(RecursiveDir)%(FileName)%(Extension)</RelativePath>
+                <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+            </ResolvedFileToPublish>
+        </ItemGroup>
+    </Target>
+
 </Project>

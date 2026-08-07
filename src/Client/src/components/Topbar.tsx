@@ -48,8 +48,10 @@ export function FileMenu() {
 }
 
 export function WindowControls() {
+  const isDesktop = typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage;
+  
   const sendMessage = (action: string) => {
-    if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
+    if (isDesktop) {
       (window as any).external.sendMessage(JSON.stringify({ action }));
     }
   };
@@ -59,17 +61,19 @@ export function WindowControls() {
       <div className="flex items-center gap-3 pr-2 border-r border-zinc-800/80 h-full">
         <LanPeersPanel />
       </div>
-      <div className="flex items-center h-full gap-0 ml-1">
-        <button onClick={() => sendMessage("minimize")} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
-          <Minus className="w-[14px] h-[14px]" />
-        </button>
-        <button onClick={() => sendMessage("maximize")} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
-          <Square className="w-3 h-3" />
-        </button>
-        <button onClick={() => sendMessage("close")} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-red-500 hover:text-white transition-colors">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+      {isDesktop && (
+        <div className="flex items-center h-full gap-0 ml-1">
+          <button onClick={() => sendMessage("minimize")} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+            <Minus className="w-[14px] h-[14px]" />
+          </button>
+          <button onClick={() => sendMessage("maximize")} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+            <Square className="w-3 h-3" />
+          </button>
+          <button onClick={() => sendMessage("close")} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-red-500 hover:text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -22,8 +22,8 @@ public static class ApiEndpoints
                                                     context.Connection.RemoteIpAddress.ToString() ==
                                                     context.Connection.LocalIpAddress?.ToString());
 
-                var isExcluded = context.Request.Path.StartsWithSegments("/api/settings") &&
-                                 context.Request.Method == "GET";
+                var isExcluded = (context.Request.Path.StartsWithSegments("/api/settings") && context.Request.Method == "GET") ||
+                                 (!context.Request.Path.StartsWithSegments("/api") && !context.Request.Path.StartsWithSegments("/hub"));
 
                 var isPeerEndpoint = context.Request.Path.StartsWithSegments("/api/sync/manifest") ||
                                      context.Request.Path.StartsWithSegments("/api/rawfile");

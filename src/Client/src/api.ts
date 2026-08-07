@@ -6,10 +6,32 @@ export const getBaseUrl = () => {
 
 export const BASE_URL = getBaseUrl();
 
+const getToken = () => localStorage.getItem("server_password");
+
+const handleResponse = (response: Response) => {
+  if (response.status === 401) {
+    const pwd = prompt("Authentication required. Please enter the server password:");
+    if (pwd !== null) {
+      localStorage.setItem("server_password", pwd);
+      window.location.reload();
+    }
+  }
+  return response;
+};
+
+const fetchWithAuth = async (url: string, options?: RequestInit) => {
+  const token = getToken();
+  const authUrl = new URL(url);
+  if (token) authUrl.searchParams.append("access_token", token);
+  
+  const response = await fetch(authUrl.toString(), options);
+  return handleResponse(response);
+};
+
 export const api = {
   getFiles: async (): Promise<{files: string[], folders: string[], notebookName?: string}> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/files`);
+      const response = await fetchWithAuth(`${BASE_URL}/api/files`);
       if (response.ok) {
         return await response.json();
       }
@@ -21,7 +43,7 @@ export const api = {
   
   createFile: async (filename: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/files`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename })
@@ -35,7 +57,7 @@ export const api = {
 
   deleteFile: async (filename: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/files/${encodeURIComponent(filename)}`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/files/${encodeURIComponent(filename)}`, {
         method: "DELETE"
       });
       return response.ok;
@@ -47,7 +69,7 @@ export const api = {
 
   renameItem: async (oldPath: string, newPath: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/files/rename`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/files/rename`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ oldPath, newPath })
@@ -61,7 +83,7 @@ export const api = {
   
   createFolder: async (path: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/folders`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/folders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path })
@@ -75,7 +97,7 @@ export const api = {
   
   deleteFolder: async (path: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/folders/${encodeURIComponent(path)}`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/folders/${encodeURIComponent(path)}`, {
         method: "DELETE"
       });
       return response.ok;
@@ -99,9 +121,23 @@ export const api = {
     }
   },
   
+  getDocument: async (filename: string): Promise<string> => {
+    try {
+      const response = await fetchWithAuth(`${BASE_URL}/api/document?filename=${encodeURIComponent(filename)}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.text;
+      }
+      return "";
+    } catch (e) {
+      console.error(e);
+      return "";
+    }
+  },
+  
   openNative: async (path: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/files/open-native`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/files/open-native`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path })
@@ -115,7 +151,7 @@ export const api = {
 
   getPeers: async (): Promise<any[]> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/peers`);
+      const response = await fetchWithAuth(`${BASE_URL}/api/peers`);
       if (response.ok) {
         return await response.json();
       }
@@ -171,7 +207,7 @@ export const api = {
 
   getSettings: async (): Promise<{ username: string, password?: string, recentFolders: string[] } | null> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/settings`);
+      const response = await fetchWithAuth(`${BASE_URL}/api/settings`);
       if (response.ok) {
         return await response.json();
       }
@@ -196,7 +232,7 @@ export const api = {
 
   updateSettings: async (settings: { username: string, password?: string }): Promise<boolean> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/settings`, {
+      const response = await fetchWithAuth(`${BASE_URL}/api/settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings)

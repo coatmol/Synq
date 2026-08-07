@@ -1,6 +1,11 @@
 using Desktop;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory,
+    WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot")
+});
 
 // Register Core Services
 builder.Services.AddSingleton<WorkspaceState>();
@@ -30,6 +35,9 @@ heartbeat.Start();
 
 app.UseCors("AllowAll");
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 // Configure the active sync folder
 var state = app.Services.GetRequiredService<WorkspaceState>();
 var folderEnv = Environment.GetEnvironmentVariable("folder")?.Replace("\"", "").Replace("'", "");
@@ -46,6 +54,7 @@ if (!Directory.Exists(state.CurrentFolder))
 
 // Map the unified API
 ApiEndpoints.MapAll(app);
+app.MapFallbackToFile("index.html");
 
 // Bind to port
 var portEnv = Environment.GetEnvironmentVariable("port") ?? "5454";

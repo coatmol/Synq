@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from "react";
 import * as signalR from "@microsoft/signalr";
 import { create } from "zustand";
-import { BASE_URL } from "../api";
+import { BASE_URL, api } from "../api";
 
 interface DocumentState {
   activeFile: string | null;
@@ -65,8 +65,11 @@ let connectionStarted = false;
 function getOrCreateConnection(): signalR.HubConnection {
   if (singletonConnection) return singletonConnection;
 
+  const token = localStorage.getItem("server_password");
+  const hubUrl = token ? `${BASE_URL}/hub?access_token=${encodeURIComponent(token)}` : `${BASE_URL}/hub`;
+
   const newConnection = new signalR.HubConnectionBuilder()
-    .withUrl(`${BASE_URL}/hub`)
+    .withUrl(hubUrl)
     .withAutomaticReconnect()
     .build();
 
@@ -186,14 +189,11 @@ async function fetchDocumentImpl() {
   }
 
   try {
-    const response = await fetch(`${BASE_URL}/api/document?filename=${encodeURIComponent(activeFile)}`);
-    if (response.ok) {
-      const data = await response.json();
-      documentCache.set(activeFile, data.text);
-      // Only update if this file is still the active one
-      if (useDocumentStore.getState().activeFile === activeFile) {
-        setText(data.text);
-      }
+    const text = await api.getDocument(activeFile);
+    documentCache.set(activeFile, text);
+    // Only update if this file is still the active one
+    if (useDocumentStore.getState().activeFile === activeFile) {
+      setText(text);
     }
   } catch (err) {
     console.error("Failed to fetch initial document state", err);
