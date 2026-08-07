@@ -13,7 +13,7 @@ import { Annotation } from "@codemirror/state";
 
 export const remoteUpdateAnnotation = Annotation.define<boolean>();
 
-import { customLinkClickPlugin, codeBlockPlugin, customHighlight, latexPlugin } from "./EditorExtensions";
+import { customLinkClickPlugin, codeBlockPlugin, customHighlight, latexPlugin, verticalNavFix } from "./EditorExtensions";
 
 export function EditorWorkspace() {
   const { text: remoteText, setDocumentStats, isLoading, activeFile } = useDocumentStore();
@@ -129,12 +129,17 @@ export function EditorWorkspace() {
 
   const editorTheme = useMemo(() => {
     return EditorView.theme({
-      // We keep some global overrides just in case, but styling monospace block backgrounds fully requires targeting the lines.
-      // We will do that in CSS.
+      // Headings are styled at the line level to prevent vertical cursor movement bugs when line wrapping is enabled.
+      ".cm-heading1": { fontSize: "2.25em", fontWeight: "800", color: "#60a5fa" },
+      ".cm-heading2": { fontSize: "1.75em", fontWeight: "700", color: "#34d399" },
+      ".cm-heading3": { fontSize: "1.5em", fontWeight: "600", color: "#f472b6" },
+      ".cm-heading4": { fontSize: "1.25em", fontWeight: "600", color: "#fbbf24" },
+      ".cm-heading5": { fontSize: "1.1em", fontWeight: "500", color: "#a78bfa" },
+      ".cm-heading6": { fontSize: "1em", fontWeight: "500", color: "#f87171" },
     });
   }, []);
   
-  const editorExtensions = useMemo(() => [captureViewExtension, customHighlight, editorTheme, codeBlockPlugin, customLinkClickPlugin, latexPlugin], [captureViewExtension, customHighlight, editorTheme]);
+  const editorExtensions = useMemo(() => [captureViewExtension, customHighlight, editorTheme, codeBlockPlugin, customLinkClickPlugin, latexPlugin, verticalNavFix], [captureViewExtension, customHighlight, editorTheme, codeBlockPlugin, customLinkClickPlugin, latexPlugin, verticalNavFix]);
   const handleLinkClick = useCallback((url: string) => window.open(url, "_blank"), []);
 
   return (

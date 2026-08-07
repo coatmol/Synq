@@ -63,6 +63,15 @@ const codeBlockSingleDecoration = Decoration.line({
   class: "cm-codeblock-line cm-codeblock-first-line cm-codeblock-last-line"
 });
 
+const headingDecos = {
+  ATXHeading1: Decoration.line({ class: "cm-heading1" }),
+  ATXHeading2: Decoration.line({ class: "cm-heading2" }),
+  ATXHeading3: Decoration.line({ class: "cm-heading3" }),
+  ATXHeading4: Decoration.line({ class: "cm-heading4" }),
+  ATXHeading5: Decoration.line({ class: "cm-heading5" }),
+  ATXHeading6: Decoration.line({ class: "cm-heading6" })
+};
+
 class LanguageLabelWidget extends WidgetType {
   constructor(readonly lang: string) { super(); }
   eq(other: LanguageLabelWidget) { return this.lang === other.lang; }
@@ -123,6 +132,12 @@ export const codeBlockPlugin = ViewPlugin.fromClass(class {
                 side: 1
               }).range(startLine.from));
             }
+          } else if (node.name.startsWith("ATXHeading")) {
+            const line = view.state.doc.lineAt(node.from);
+            const deco = headingDecos[node.name as keyof typeof headingDecos];
+            if (deco) {
+              decos.push(deco.range(line.from));
+            }
           }
         }
       });
@@ -140,12 +155,9 @@ export const codeBlockPlugin = ViewPlugin.fromClass(class {
 
 // --- Syntax Highlighting ---
 export const customHighlight = syntaxHighlighting(HighlightStyle.define([
-  { tag: t.heading1, fontSize: "2.25em", fontWeight: "800", color: "#60a5fa" }, // blue-400
-  { tag: t.heading2, fontSize: "1.75em", fontWeight: "700", color: "#34d399" }, // emerald-400
-  { tag: t.heading3, fontSize: "1.5em", fontWeight: "600", color: "#f472b6" }, // pink-400
-  { tag: t.heading4, fontSize: "1.25em", fontWeight: "600", color: "#fbbf24" }, // amber-400
-  { tag: t.heading5, fontSize: "1.1em", fontWeight: "500", color: "#a78bfa" }, // violet-400
-  { tag: t.heading6, fontSize: "1em", fontWeight: "500", color: "#f87171" }, // red-400
+  // We remove fontSize from heading tags to avoid CodeMirror line wrapping layout crashes.
+  // Headings are now styled via line decorations (cm-heading1, etc.) in the theme.
+  { tag: t.heading, color: "inherit" },
   { tag: [t.monospace, t.processingInstruction], backgroundColor: "#18181b", borderRadius: "4px", padding: "2px 4px", fontFamily: "var(--font-mono)", color: "#e4e4e7" },
   { tag: t.quote, color: "#a1a1aa", fontStyle: "italic", borderLeft: "3px solid #3f3f46", paddingLeft: "8px" }, // blockquotes
   { tag: t.link, color: "#38bdf8", textDecoration: "underline" }, // links (light blue)
@@ -169,58 +181,59 @@ class MathWidget extends WidgetType {
   }
 
   toDOM(view: EditorView) {
-    const span = document.createElement("span");
-    span.className = "cm-math-widget cursor-text";
+    const container = document.createElement(this.block ? "div" : "span");
+    container.className = "cm-math-widget cursor-text";
     
     if (this.block) {
-      span.style.display = "inline-block";
-      span.style.width = "100%";
+      container.style.display = "block";
+      container.style.width = "100%";
+      container.style.padding = "1rem 0";
+    } else {
+      container.style.display = "inline-block";
     }
 
-    span.addEventListener("mousedown", (e) => {
+    container.addEventListener("mousedown", (e) => {
       view.dispatch({ selection: { anchor: this.pos } });
     });
 
     try {
-      katex.render(this.math, span, {
+      katex.render(this.math, container, {
         displayMode: this.block,
         throwOnError: false,
       });
       
-      // CRITICAL: CodeMirror inline replacements break if they contain `display: block` elements.
-      // KaTeX displayMode creates a .katex-display element with display: block.
-      // We must override it to inline-block to prevent CodeMirror layout crashes.
-      if (this.block) {
-        const displayEl = span.querySelector(".katex-display") as HTMLElement;
+      // For inline math, ensure KaTeX doesn't accidentally produce block elements
+      if (!this.block) {
+        const displayEl = container.querySelector(".katex-display") as HTMLElement;
         if (displayEl) {
           displayEl.style.display = "inline-block";
-          displayEl.style.width = "100%";
-          displayEl.style.margin = "1rem 0";
-          displayEl.style.textAlign = "center";
         }
       }
     } catch (err) {
-      span.textContent = this.math;
-      span.className += " cm-math-error text-red-500";
+      container.textContent = this.math;
+      container.className += " cm-math-error text-red-500";
     }
-    return span;
+    return container;
   }
 }
 
 export const latexPlugin = StateField.define<any>({
   create(state) {
-    return buildMathDecorations(state.doc.toString(), state.selection.main);
+    return buildMathDecorations(state.doc, state.selection.main);
   },
   update(value, tr: Transaction) {
     if (tr.docChanged || tr.selection) {
-      return buildMathDecorations(tr.state.doc.toString(), tr.state.selection.main);
+      return buildMathDecorations(tr.state.doc, tr.state.selection.main);
     }
     return value;
   },
-  provide: f => EditorView.decorations.from(f)
+  provide: f => [EditorView.decorations.from(f), EditorView.atomicRanges.from(f)]
 });
 
-function buildMathDecorations(text: string, selection: any) {
+import { Text } from "@codemirror/state";
+
+function buildMathDecorations(doc: Text, selection: any) {
+  const text = doc.toString();
   const builder = new RangeSetBuilder<Decoration>();
   
   // We iterate over the entire document to ensure multi-line blocks are properly detected. 
@@ -258,14 +271,31 @@ function buildMathDecorations(text: string, selection: any) {
   matches.sort((a, b) => a.start - b.start);
 
   for (const m of matches) {
-    // Allow editing if cursor is inside or adjacent to the math block boundaries
-    const hasCursor = selection.from >= m.start && selection.to <= m.end;
+    let start = m.start;
+    let end = m.end;
+    
+    if (m.block) {
+      // Snap to full line boundaries to satisfy CodeMirror's block replacement rules
+      start = doc.lineAt(m.start).from;
+      end = doc.lineAt(m.end).to;
+    }
+    
+    // Allow editing if the selection overlaps the math block AT ALL
+    const hasCursor = selection.from <= end && selection.to >= start;
     
     if (!hasCursor) {
-      builder.add(m.start, m.end, Decoration.replace({
-        widget: new MathWidget(m.math, m.block, m.start),
-        inclusive: false
-      }));
+      if (m.block) {
+        // True block replacement
+        builder.add(start, end, Decoration.replace({
+          widget: new MathWidget(m.math, true, m.start),
+          block: true
+        }));
+      } else {
+        builder.add(start, end, Decoration.replace({
+          widget: new MathWidget(m.math, false, m.start),
+          inclusive: false
+        }));
+      }
     } else {
       builder.add(m.start, m.end, Decoration.mark({ class: "bg-zinc-800/40 text-emerald-400/90 rounded px-1" }));
     }
@@ -273,3 +303,37 @@ function buildMathDecorations(text: string, selection: any) {
 
   return builder.finish();
 }
+
+import { keymap } from "@codemirror/view";
+import { EditorSelection, Prec } from "@codemirror/state";
+
+const customVerticalMove = (forward: boolean, extend: boolean) => (view: EditorView) => {
+  const distance = view.defaultLineHeight;
+  const movedSelection = view.moveVertically(view.state.selection, forward, distance);
+  if (movedSelection.eq(view.state.selection)) return false;
+  
+  let finalSelection = movedSelection;
+  if (extend) {
+    finalSelection = EditorSelection.create(
+      view.state.selection.ranges.map((r, i) => {
+        return EditorSelection.range(r.anchor, movedSelection.ranges[i].head);
+      }),
+      movedSelection.mainIndex
+    );
+  }
+  
+  view.dispatch({
+    selection: finalSelection,
+    scrollIntoView: true,
+    userEvent: "keyboard.selection"
+  });
+  return true;
+};
+
+export const verticalNavFix = Prec.highest(
+  keymap.of([
+    { key: "ArrowUp", run: customVerticalMove(false, false), shift: customVerticalMove(false, true) },
+    { key: "ArrowDown", run: customVerticalMove(true, false), shift: customVerticalMove(true, true) }
+  ])
+);
+
