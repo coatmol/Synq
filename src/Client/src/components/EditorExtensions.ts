@@ -2,6 +2,9 @@
 import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 import { syntaxHighlighting, HighlightStyle, syntaxTree } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
+import { RangeSetBuilder, StateField, Transaction } from "@codemirror/state";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 // --- Link Click Handling ---
 export const customLinkClickPlugin = EditorView.domEventHandlers({
@@ -154,3 +157,119 @@ export const customHighlight = syntaxHighlighting(HighlightStyle.define([
   { tag: t.list, color: "#34d399" }, // Emerald list bullets
   { tag: t.contentSeparator, color: "#52525b", fontWeight: "bold" }, // Horizontal rules
 ]));
+
+// --- LaTeX rendering ---
+class MathWidget extends WidgetType {
+  constructor(readonly math: string, readonly block: boolean, readonly pos: number) {
+    super();
+  }
+
+  eq(other: MathWidget) {
+    return this.math === other.math && this.block === other.block && this.pos === other.pos;
+  }
+
+  toDOM(view: EditorView) {
+    const span = document.createElement("span");
+    span.className = "cm-math-widget cursor-text";
+    
+    if (this.block) {
+      span.style.display = "inline-block";
+      span.style.width = "100%";
+    }
+
+    span.addEventListener("mousedown", (e) => {
+      view.dispatch({ selection: { anchor: this.pos } });
+    });
+
+    try {
+      katex.render(this.math, span, {
+        displayMode: this.block,
+        throwOnError: false,
+      });
+      
+      // CRITICAL: CodeMirror inline replacements break if they contain `display: block` elements.
+      // KaTeX displayMode creates a .katex-display element with display: block.
+      // We must override it to inline-block to prevent CodeMirror layout crashes.
+      if (this.block) {
+        const displayEl = span.querySelector(".katex-display") as HTMLElement;
+        if (displayEl) {
+          displayEl.style.display = "inline-block";
+          displayEl.style.width = "100%";
+          displayEl.style.margin = "1rem 0";
+          displayEl.style.textAlign = "center";
+        }
+      }
+    } catch (err) {
+      span.textContent = this.math;
+      span.className += " cm-math-error text-red-500";
+    }
+    return span;
+  }
+}
+
+export const latexPlugin = StateField.define<any>({
+  create(state) {
+    return buildMathDecorations(state.doc.toString(), state.selection.main);
+  },
+  update(value, tr: Transaction) {
+    if (tr.docChanged || tr.selection) {
+      return buildMathDecorations(tr.state.doc.toString(), tr.state.selection.main);
+    }
+    return value;
+  },
+  provide: f => EditorView.decorations.from(f)
+});
+
+function buildMathDecorations(text: string, selection: any) {
+  const builder = new RangeSetBuilder<Decoration>();
+  
+  // We iterate over the entire document to ensure multi-line blocks are properly detected. 
+  // For extreme performance on huge documents, this would be optimized to limit processing.
+  
+  const blockRegex = /\$\$([\s\S]*?)\$\$/g;
+  const inlineRegex = /(?<!\$)\$([^$\n]+?)\$(?!\$)/g;
+
+  const matches: { start: number, end: number, math: string, block: boolean }[] = [];
+
+  let match;
+  while ((match = blockRegex.exec(text)) !== null) {
+    matches.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      math: match[1],
+      block: true
+    });
+  }
+
+  while ((match = inlineRegex.exec(text)) !== null) {
+    const start = match.index;
+    const end = match.index + match[0].length;
+    const overlap = matches.some(m => start < m.end && end > m.start);
+    if (!overlap) {
+      matches.push({
+        start,
+        end,
+        math: match[1],
+        block: false
+      });
+    }
+  }
+
+  matches.sort((a, b) => a.start - b.start);
+
+  for (const m of matches) {
+    // Allow editing if cursor is inside or adjacent to the math block boundaries
+    const hasCursor = selection.from >= m.start && selection.to <= m.end;
+    
+    if (!hasCursor) {
+      builder.add(m.start, m.end, Decoration.replace({
+        widget: new MathWidget(m.math, m.block, m.start),
+        inclusive: false
+      }));
+    } else {
+      builder.add(m.start, m.end, Decoration.mark({ class: "bg-zinc-800/40 text-emerald-400/90 rounded px-1" }));
+    }
+  }
+
+  return builder.finish();
+}

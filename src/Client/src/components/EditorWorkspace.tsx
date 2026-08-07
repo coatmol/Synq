@@ -13,7 +13,7 @@ import { Annotation } from "@codemirror/state";
 
 export const remoteUpdateAnnotation = Annotation.define<boolean>();
 
-import { customLinkClickPlugin, codeBlockPlugin, customHighlight } from "./EditorExtensions";
+import { customLinkClickPlugin, codeBlockPlugin, customHighlight, latexPlugin } from "./EditorExtensions";
 
 export function EditorWorkspace() {
   const { text: remoteText, setDocumentStats, isLoading, activeFile } = useDocumentStore();
@@ -134,7 +134,7 @@ export function EditorWorkspace() {
     });
   }, []);
   
-  const editorExtensions = useMemo(() => [captureViewExtension, customHighlight, editorTheme, codeBlockPlugin, customLinkClickPlugin], [captureViewExtension, customHighlight, editorTheme]);
+  const editorExtensions = useMemo(() => [captureViewExtension, customHighlight, editorTheme, codeBlockPlugin, customLinkClickPlugin, latexPlugin], [captureViewExtension, customHighlight, editorTheme]);
   const handleLinkClick = useCallback((url: string) => window.open(url, "_blank"), []);
 
   return (
