@@ -196,7 +196,7 @@ export function FileTree() {
         <Dropdown isOpen={contextMenuNode === node.path} onOpenChange={(isOpen) => !isOpen && setContextMenuNode(null)}>
           <Dropdown.Trigger>
             <div 
-              className={`flex items-center justify-between group/item py-[6px] my-[1px] mr-2 ml-2 rounded-md text-[13px] font-medium transition-all duration-150 cursor-pointer ${isActive ? 'bg-zinc-800/80 text-emerald-400 shadow-sm' : isSelectedFolder ? 'bg-zinc-800/40 text-emerald-300' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}
+              className={`flex items-center justify-between group/item py-[6px] my-[1px] mr-2 ml-2 rounded-md text-[13px] font-medium transition-all duration-150 cursor-pointer ${isActive ? 'bg-emerald-500 text-white shadow-sm' : isSelectedFolder ? 'bg-zinc-800/40 text-emerald-400' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}
               style={{ paddingLeft: `${level * 16 + 6}px`, paddingRight: '6px' }}
           onClick={(e) => {
             e.stopPropagation();
@@ -219,9 +219,9 @@ export function FileTree() {
         >
           <div className="flex items-center gap-2 truncate">
             {node.isFolder ? (
-               isExpanded ? <FolderOpen className={`w-4 h-4 shrink-0 transition-colors ${isActive || isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-500'}`} /> : <Folder className={`w-4 h-4 shrink-0 transition-colors ${isActive || isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-500'}`} />
+               isExpanded ? <FolderOpen className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-400'}`} /> : <Folder className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-400'}`} />
             ) : (
-               <FileText className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-emerald-400' : 'text-zinc-600 group-hover/item:text-zinc-400'}`} />
+               <FileText className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-zinc-600 group-hover/item:text-zinc-400'}`} />
             )}
             <span className="truncate select-none">{node.name}</span>
           </div>
@@ -266,7 +266,7 @@ export function FileTree() {
               variant="ghost"
               className="border-none min-w-0 px-2 h-7 text-xs font-bold text-zinc-500 hover:text-zinc-300 uppercase tracking-widest hover:bg-zinc-800/50 rounded transition-colors focus:outline-none"
             >
-              Workspace
+              NOTEBOOK
             </Button>
           </Dropdown.Trigger>
           <Dropdown.Popover className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-2xl v3 \'/min-w-50">
@@ -302,14 +302,14 @@ export function FileTree() {
         <div className="flex items-center gap-1">
           <button 
             onClick={(e) => { e.stopPropagation(); handleCreateFile(); }}
-            className="text-zinc-500 hover:text-emerald-500 transition-colors p-1"
+            className="text-zinc-500 hover:text-emerald-400 transition-colors p-1"
             title="New File"
           >
             <Plus className="w-4 h-4" />
           </button>
           <button 
             onClick={(e) => { e.stopPropagation(); handleCreateFolder(); }}
-            className="text-zinc-500 hover:text-emerald-500 transition-colors p-1"
+            className="text-zinc-500 hover:text-emerald-400 transition-colors p-1"
             title="New Folder"
           >
             <FolderPlus className="w-4 h-4" />

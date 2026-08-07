@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -8,6 +9,158 @@ namespace Desktop;
 
 internal class Program
 {
+    // Win32 API Constants
+    private const int GWL_STYLE = -16;
+    private const uint WS_CAPTION = 0x00C00000;
+    private const uint WS_THICKFRAME = 0x00040000;
+    private const uint WS_MINIMIZEBOX = 0x00020000;
+    private const uint WS_MAXIMIZEBOX = 0x00010000;
+    private const uint WS_SYSMENU = 0x00080000;
+
+    private const uint SWP_FRAMECHANGED = 0x0020;
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOZORDER = 0x0004;
+
+    private const int GWLP_WNDPROC = -4;
+    private const uint WM_NCCALCSIZE = 0x0083;
+    private const uint WM_NCHITTEST = 0x0084;
+    private const int HTCLIENT = 1;
+
+    private const uint WM_GETMINMAXINFO = 0x0024;
+    private const int MONITOR_DEFAULTTONEAREST = 2;
+
+    private static WndProcDelegate _wndProcDelegate;
+    private static IntPtr _oldWndProc;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, uint dwNewLong);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy,
+        uint uFlags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS pMarInset);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
+    private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, WndProcDelegate newProc);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
+    private static extern IntPtr SetWindowLong32(IntPtr hWnd, int nIndex, WndProcDelegate newProc);
+
+    private static IntPtr SetWndProc(IntPtr hWnd, WndProcDelegate newProc)
+    {
+        if (IntPtr.Size == 8) return SetWindowLongPtr64(hWnd, GWLP_WNDPROC, newProc);
+        return SetWindowLong32(hWnd, GWLP_WNDPROC, newProc);
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint msg, IntPtr wParam,
+        IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    private static extern bool ScreenToClient(IntPtr hWnd, ref POINT lpPoint);
+
+    private static IntPtr CustomWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        if (msg == WM_NCCALCSIZE && wParam != IntPtr.Zero)
+        {
+            var style = GetWindowLong(hWnd, GWL_STYLE);
+            var isMaximized = (style & 0x01000000) != 0; // WS_MAXIMIZE
+
+            if (isMaximized)
+            {
+                var param = Marshal.PtrToStructure<NCCALCSIZE_PARAMS>(lParam);
+                var hMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+                if (hMonitor != IntPtr.Zero)
+                {
+                    var mi = new MONITORINFO();
+                    mi.cbSize = (uint)Marshal.SizeOf<MONITORINFO>();
+                    if (GetMonitorInfo(hMonitor, ref mi))
+                    {
+                        param.rgrc0 = mi.rcWork;
+                        Marshal.StructureToPtr(param, lParam, true);
+                    }
+                }
+            }
+
+            return IntPtr.Zero; // Remove entire non-client area (titlebar and borders)
+        }
+
+        if (msg == WM_GETMINMAXINFO)
+        {
+            var ret = CallWindowProc(_oldWndProc, hWnd, msg, wParam, lParam);
+
+            var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+            var hMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+            if (hMonitor != IntPtr.Zero)
+            {
+                var mi = new MONITORINFO();
+                mi.cbSize = (uint)Marshal.SizeOf<MONITORINFO>();
+                if (GetMonitorInfo(hMonitor, ref mi))
+                {
+                    mmi.ptMaxPosition.x = Math.Abs(mi.rcWork.left - mi.rcMonitor.left);
+                    mmi.ptMaxPosition.y = Math.Abs(mi.rcWork.top - mi.rcMonitor.top);
+                    mmi.ptMaxSize.x = Math.Abs(mi.rcWork.right - mi.rcWork.left);
+                    mmi.ptMaxSize.y = Math.Abs(mi.rcWork.bottom - mi.rcWork.top);
+
+                    Marshal.StructureToPtr(mmi, lParam, true);
+                }
+            }
+
+            return IntPtr.Zero;
+        }
+
+        if (msg == WM_NCHITTEST)
+        {
+            var hit = CallWindowProc(_oldWndProc, hWnd, msg, wParam, lParam);
+            if (hit.ToInt32() == HTCLIENT)
+            {
+                int x = (short)(lParam.ToInt64() & 0xFFFF);
+                int y = (short)((lParam.ToInt64() >> 16) & 0xFFFF);
+                var pt = new POINT { x = x, y = y };
+                ScreenToClient(hWnd, ref pt);
+
+                GetClientRect(hWnd, out var rc);
+                var border = 8;
+                var left = pt.x < border;
+                var right = pt.x > rc.right - border;
+                var top = pt.y < border;
+                var bottom = pt.y > rc.bottom - border;
+
+                if (top && left) return 13; // HTTOPLEFT
+                if (top && right) return 14; // HTTOPRIGHT
+                if (bottom && left) return 16; // HTBOTTOMLEFT
+                if (bottom && right) return 17; // HTBOTTOMRIGHT
+                if (top) return 12; // HTTOP
+                if (bottom) return 15; // HTBOTTOM
+                if (left) return 10; // HTLEFT
+                if (right) return 11; // HTRIGHT
+
+                // Fake the HTCAPTION drag region because WM_NCCALCSIZE 0 breaks native drag
+                // Topbar is 42px tall. Avoid the right 150px (window controls) and left 80px (file menu).
+                if (pt.y < 42 && pt.x > 80 && pt.x < rc.right - 150) return 2; // HTCAPTION
+            }
+
+            return hit;
+        }
+
+        return CallWindowProc(_oldWndProc, hWnd, msg, wParam, lParam);
+    }
+
     [STAThread]
     private static void Main(string[] args)
     {
@@ -91,16 +244,22 @@ internal class Program
             ? $"http://127.0.0.1:5173?backend={localServerUrl}"
             : $"{localServerUrl}?backend={localServerUrl}";
 
+
         var window = new PhotinoWindow()
             .SetTitle("Synq - Local-First Markdown Editor")
             .SetIconFile(Path.Combine(AppContext.BaseDirectory, "Synq3.ico"))
             .SetSize(1280, 800)
             .Center()
+            .SetUseOsDefaultLocation(false)
+            .SetUseOsDefaultSize(false)
             .SetContextMenuEnabled(false)
             .SetDevToolsEnabled(true)
             .SetSmoothScrollingEnabled(true)
-            .SetFileSystemAccessEnabled(true)
-            .Load(startUrl);
+            .SetFileSystemAccessEnabled(true);
+
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) window.SetChromeless(true);
+
+        window.Load(startUrl);
 
         var isMaximized = false;
         window.RegisterWebMessageReceivedHandler((sender, message) =>
@@ -200,6 +359,19 @@ internal class Program
                         }
 
                         break;
+                    case "removeRecent":
+                        var pathToRemove = msg.RootElement.GetProperty("path").GetString();
+                        if (!string.IsNullOrEmpty(pathToRemove))
+                        {
+                            var state = app.Services.GetRequiredService<WorkspaceState>();
+                            if (state.Settings.RecentFolders.Contains(pathToRemove))
+                            {
+                                state.Settings.RecentFolders.Remove(pathToRemove);
+                                state.SaveSettings();
+                            }
+                        }
+
+                        break;
                     case "connectPeer":
                         var ip = msg.RootElement.GetProperty("ip").GetString();
                         var port = msg.RootElement.GetProperty("port").GetInt32();
@@ -229,6 +401,25 @@ internal class Program
             }
         });
 
+        window.WindowCreated += (sender, e) =>
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                var hWnd = window.WindowHandle;
+
+                // Subclass the window to intercept WM_NCCALCSIZE
+                _wndProcDelegate = CustomWndProc;
+                _oldWndProc = SetWndProc(hWnd, _wndProcDelegate);
+
+                // Extend DWM frame into client area to keep drop shadow and animations
+                var margins = new MARGINS { cxLeftWidth = 0, cxRightWidth = 0, cyTopHeight = 1, cyBottomHeight = 0 };
+                DwmExtendFrameIntoClientArea(hWnd, ref margins);
+
+                // Force frame recalculation so NCCALCSIZE is triggered
+                SetWindowPos(hWnd, IntPtr.Zero, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
+            }
+        };
+
         window.WindowClosing += (sender, e) =>
         {
             discoveryService.Stop();
@@ -238,4 +429,64 @@ internal class Program
 
         window.WaitForClose();
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int left, top, right, bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int x, y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MARGINS
+    {
+        public int cxLeftWidth, cxRightWidth, cyTopHeight, cyBottomHeight;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WINDOWPOS
+    {
+        public IntPtr hwnd;
+        public IntPtr hwndInsertAfter;
+        public int x;
+        public int y;
+        public int cx;
+        public int cy;
+        public uint flags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct NCCALCSIZE_PARAMS
+    {
+        public RECT rgrc0;
+        public RECT rgrc1;
+        public RECT rgrc2;
+        public IntPtr lppos;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MINMAXINFO
+    {
+        public POINT ptReserved;
+        public POINT ptMaxSize;
+        public POINT ptMaxPosition;
+        public POINT ptMinTrackSize;
+        public POINT ptMaxTrackSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MONITORINFO
+    {
+        public uint cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 }

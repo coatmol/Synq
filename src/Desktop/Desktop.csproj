@@ -19,7 +19,7 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10"/>
         <PackageReference Include="Photino.NET" Version="4.0.16"/>
-        <PackageReference Include="SIPSorcery" Version="10.0.13" />
+        <PackageReference Include="SIPSorcery" Version="10.0.13"/>
     </ItemGroup>
 
     <ItemGroup>

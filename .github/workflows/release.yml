@@ -39,12 +39,19 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Extract Version
+        id: extract_version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+        shell: bash
+
       - name: Publish App
         # Building as self-contained so users don't need to install the .NET runtime
-        run: dotnet publish src/Desktop/Desktop.csproj -c Release -r ${{ matrix.rid }} --self-contained true -o publish
+        run: dotnet publish src/Desktop/Desktop.csproj -c Release -r ${{ matrix.rid }} --self-contained true -o publish /p:Version=${{ env.VERSION }}
 
       - name: Publish Server App
-        run: dotnet publish src/Server/Server.csproj -c Release -r ${{ matrix.rid }} -p:PublishSingleFile=true --self-contained true -o publish-server
+        run: dotnet publish src/Server/Server.csproj -c Release -r ${{ matrix.rid }} -p:PublishSingleFile=true --self-contained true -o publish-server /p:Version=${{ env.VERSION }}
 
       - name: Archive Build (Windows)
         if: runner.os == 'Windows'

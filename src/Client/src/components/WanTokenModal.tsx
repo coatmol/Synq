@@ -162,7 +162,7 @@ export function WanTokenModal({ isOpen, onClose }: { isOpen: boolean, onClose: (
                 {step === "connected" ? "Close" : "Cancel"}
               </Button>
               {step === "wait" && (
-                <Button className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-[0_0_15px_rgba(5,150,105,0.3)] px-6" isDisabled={!tokenB || loading} onPress={handleConnect}>
+                <Button className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-[0_0_15px_rgba(16,185,129,0.3)] px-6" isDisabled={!tokenB || loading} onPress={handleConnect}>
                   {loading ? "Connecting..." : "Connect"}
                 </Button>
               )}

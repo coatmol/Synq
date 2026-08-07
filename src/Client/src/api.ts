@@ -181,6 +181,19 @@ export const api = {
     return null;
   },
 
+  getVersion: async (): Promise<string | null> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/version`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.version;
+      }
+    } catch (e) {
+      console.error("Failed to fetch version", e);
+    }
+    return null;
+  },
+
   updateSettings: async (settings: { username: string, password?: string }): Promise<boolean> => {
     try {
       const response = await fetch(`${BASE_URL}/api/settings`, {

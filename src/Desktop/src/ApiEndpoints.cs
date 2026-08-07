@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -320,6 +321,12 @@ public static class ApiEndpoints
             state.SaveSettings();
 
             return Results.Ok();
+        });
+
+        app.MapGet("/api/version", () =>
+        {
+            var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "1.0.0";
+            return Results.Ok(new { version });
         });
 
         // STUN Diagnostic Status

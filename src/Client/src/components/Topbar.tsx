@@ -1,6 +1,7 @@
 // @ts-nocheck
 import * as React from "react";
 import { Button, Dropdown } from "@heroui/react";
+import { Minus, Square, X } from "lucide-react";
 import { LanPeersPanel } from "./LanPeersPanel";
 import { SettingsModal } from "./SettingsModal";
 
@@ -13,9 +14,10 @@ export function Topbar() {
 
   return (
     <div 
-      className="h-10.5 shrink-0 bg-[#09090b] flex items-center justify-between px-2 select-none z-50"
+      className="h-10.5 shrink-0 bg-[#1e1e1e] flex items-center justify-between pl-2 select-none z-50 border-b border-[#202020]"
+      style={{ WebkitAppRegion: "drag" } as any}
     >
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-6" style={{ WebkitAppRegion: "no-drag" } as any}>
         <div className="flex items-center gap-4 pl-2">
           <Dropdown placement="bottom-start">
             <Dropdown.Trigger>
@@ -49,10 +51,21 @@ export function Topbar() {
       </div>
 
       {/* Right Side */}
-      <div className="flex items-center h-full gap-2">
-        <div className="flex items-center gap-3 pr-4 border-zinc-800/80 h-full">
+      <div className="flex items-center h-full gap-2" style={{ WebkitAppRegion: "no-drag" } as any}>
+        <div className="flex items-center gap-3 pr-2 border-r border-zinc-800/80 h-full">
           <LanPeersPanel />
           <SettingsModal />
+        </div>
+        <div className="flex items-center h-full gap-0 ml-1">
+          <button onClick={() => sendMessage("minimize")} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => sendMessage("maximize")} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+            <Square className="w-3 h-3" />
+          </button>
+          <button onClick={() => sendMessage("close")} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-red-500 hover:text-white transition-colors rounded-tr-md">
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>

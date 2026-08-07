@@ -130,12 +130,12 @@ export function EditorWorkspace() {
   const editorTheme = useMemo(() => {
     return EditorView.theme({
       // Headings are styled at the line level to prevent vertical cursor movement bugs when line wrapping is enabled.
-      ".cm-heading1": { fontSize: "2.25em", fontWeight: "800", color: "#60a5fa" },
+      ".cm-heading1": { fontSize: "2.25em", fontWeight: "800", color: "#34d399" },
       ".cm-heading2": { fontSize: "1.75em", fontWeight: "700", color: "#34d399" },
-      ".cm-heading3": { fontSize: "1.5em", fontWeight: "600", color: "#f472b6" },
-      ".cm-heading4": { fontSize: "1.25em", fontWeight: "600", color: "#fbbf24" },
-      ".cm-heading5": { fontSize: "1.1em", fontWeight: "500", color: "#a78bfa" },
-      ".cm-heading6": { fontSize: "1em", fontWeight: "500", color: "#f87171" },
+      ".cm-heading3": { fontSize: "1.5em", fontWeight: "600", color: "#a7f3d0" },
+      ".cm-heading4": { fontSize: "1.25em", fontWeight: "600", color: "#a7f3d0" },
+      ".cm-heading5": { fontSize: "1.1em", fontWeight: "500", color: "#a1a1aa" },
+      ".cm-heading6": { fontSize: "1em", fontWeight: "500", color: "#a1a1aa" },
     });
   }, []);
   
@@ -143,14 +143,14 @@ export function EditorWorkspace() {
   const handleLinkClick = useCallback((url: string) => window.open(url, "_blank"), []);
 
   return (
-    <div className="flex flex-col h-full w-full bg-zinc-950">
+    <div className="flex flex-col h-full w-full bg-[#1e1e1e]">
       {isLoading ? (
         <div className="flex-1 flex flex-col items-center justify-center">
-          <Spinner color="success" size="lg" />
+          <Spinner color="secondary" size="lg" />
           <p className="text-zinc-500 mt-4 text-sm font-medium">Loading Document...</p>
         </div>
       ) : (
-        <PanelGroup direction="horizontal" className="flex-1 w-full overflow-hidden relative bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-zinc-900/40 via-zinc-950 to-zinc-950">
+        <PanelGroup direction="horizontal" className="flex-1 w-full overflow-hidden relative bg-[#1e1e1e]">
           
           {/* Markdown editor & live preview */}
         <Panel defaultSize={100} minSize={20} className="relative group flex flex-col h-full">
