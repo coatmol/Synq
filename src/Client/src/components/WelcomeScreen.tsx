@@ -101,8 +101,18 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
     <div className="flex w-full h-screen bg-[#18181b] text-zinc-300 overflow-hidden font-sans">
       
       {/* Left Sidebar - Recent Vaults */}
-      <div className="w-64 bg-[#18181b] border-r border-zinc-800/60 flex flex-col pt-2 select-none" style={{ WebkitAppRegion: "drag" } as any}>
-        <div style={{ WebkitAppRegion: "no-drag" } as any} className="flex-1 flex flex-col">
+      <div className="w-64 bg-[#18181b] border-r border-zinc-800/60 flex flex-col select-none">
+        <div 
+          className="h-10.5 shrink-0 w-full"
+          onPointerDown={(e) => {
+            if (e.target === e.currentTarget) {
+              if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
+                (window as any).external.sendMessage(JSON.stringify({ action: "drag" }));
+              }
+            }
+          }}
+        />
+        <div className="flex-1 flex flex-col overflow-y-auto">
           <div className="px-4 py-2 text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 mt-2">
             Recent Notebooks
           </div>
@@ -143,10 +153,20 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
       </div>
 
       {/* Right Main Area */}
-      <div className="flex-1 bg-[#1e1e1e] flex flex-col items-center justify-center relative" style={{ WebkitAppRegion: "drag" } as any}>
-        
-        {/* Window Controls for Chromeless */}
-        <div className="absolute top-0 right-0 flex items-center h-10.5" style={{ WebkitAppRegion: "no-drag" } as any}>
+      <div className="flex-1 bg-[#1e1e1e] flex flex-col relative">
+        {/* Drag Header */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-10.5 flex items-center justify-end"
+          onPointerDown={(e) => {
+            if (e.target === e.currentTarget) {
+              if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
+                (window as any).external.sendMessage(JSON.stringify({ action: "drag" }));
+              }
+            }
+          }}
+        >
+          {/* Window Controls for Chromeless */}
+          <div className="flex items-center h-full">
           <button onClick={() => { if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({ action: "minimize" })); }} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
             <Minus className="w-3.5 h-3.5" />
           </button>
@@ -156,9 +176,11 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
           <button onClick={() => { if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({ action: "close" })); }} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-red-500 hover:text-white transition-colors">
             <X className="w-3.5 h-3.5" />
           </button>
+          </div>
         </div>
 
-        <div className="flex flex-col items-center max-w-md w-full" style={{ WebkitAppRegion: "no-drag" } as any}>
+        <div className="flex-1 flex flex-col items-center justify-center pt-10">
+          <div className="flex flex-col items-center max-w-md w-full">
           
           {/* Logo & Title */}
           <div className="flex flex-col items-center mb-10 select-none">
@@ -274,6 +296,7 @@ export function WelcomeScreen({ onOpenEditor }: WelcomeScreenProps) {
             )}
           </div>
           
+          </div>
         </div>
       </div>
       

@@ -74,6 +74,16 @@ internal class Program
     [DllImport("user32.dll")]
     private static extern bool ScreenToClient(IntPtr hWnd, ref POINT lpPoint);
 
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll")]
+    private static extern int SendMessage(IntPtr hWnd, uint Msg, int wParam, int lParam);
+
+    private const uint WM_SYSCOMMAND = 0x0112;
+    private const int SC_MOVE = 0xF010;
+    private const int HTCAPTION = 2;
+
     private static IntPtr CustomWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
         if (msg == WM_NCCALCSIZE && wParam != IntPtr.Zero)
@@ -281,6 +291,13 @@ internal class Program
                         isMaximized = !isMaximized;
                         win.SetMaximized(isMaximized);
                         break;
+                    case "drag":
+                        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                        {
+                            ReleaseCapture();
+                            SendMessage(win.WindowHandle, WM_SYSCOMMAND, SC_MOVE | HTCAPTION, 0);
+                        }
+                        break;
                     case "openFolder":
                         _ = discoveryService.DisconnectFromPeerAsync();
                         app.Services.GetRequiredService<WebRtcPeerManager>().DisconnectAll();
@@ -396,6 +413,13 @@ internal class Program
                     case "maximize":
                         isMaximized = !isMaximized;
                         win.SetMaximized(isMaximized);
+                        break;
+                    case "drag":
+                        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                        {
+                            ReleaseCapture();
+                            SendMessage(win.WindowHandle, WM_SYSCOMMAND, SC_MOVE | HTCAPTION, 0);
+                        }
                         break;
                 }
             }
