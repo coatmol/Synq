@@ -7,7 +7,7 @@ export const getBaseUrl = () => {
 export const BASE_URL = getBaseUrl();
 
 export const api = {
-  getFiles: async (): Promise<{files: string[], folders: string[]}> => {
+  getFiles: async (): Promise<{files: string[], folders: string[], notebookName?: string}> => {
     try {
       const response = await fetch(`${BASE_URL}/api/files`);
       if (response.ok) {

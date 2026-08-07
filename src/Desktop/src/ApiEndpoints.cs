@@ -113,7 +113,9 @@ public static class ApiEndpoints
                             !d.EndsWith(Path.DirectorySeparatorChar + ".synq"))
                 .Select(d => Path.GetRelativePath(root, d).Replace('\\', '/'));
 
-            return Results.Ok(new { files = allFiles, folders = allDirs });
+            var notebookName = new DirectoryInfo(root).Name;
+
+            return Results.Ok(new { files = allFiles, folders = allDirs, notebookName });
         });
 
         app.MapPost("/api/files",

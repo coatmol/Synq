@@ -31,6 +31,9 @@ export function FileMenu() {
           <Dropdown.Item key="open" onPress={() => sendMessage("openFolder")} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
             Open Folder...
           </Dropdown.Item>
+          <Dropdown.Item key="settings" onPress={() => window.dispatchEvent(new Event('open-settings'))} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
+            Settings...
+          </Dropdown.Item>
           <Dropdown.Item key="close" onPress={() => { sendMessage("closeFolder"); setTimeout(() => window.location.reload(), 100); }} className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
             Close folder
           </Dropdown.Item>
@@ -39,6 +42,7 @@ export function FileMenu() {
           </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown.Popover>
+      <SettingsModal />
     </Dropdown>
   );
 }
@@ -54,7 +58,6 @@ export function WindowControls() {
     <div className="flex items-center h-full gap-2 shrink-0" style={{ WebkitAppRegion: "no-drag" } as any}>
       <div className="flex items-center gap-3 pr-2 border-r border-zinc-800/80 h-full">
         <LanPeersPanel />
-        <SettingsModal />
       </div>
       <div className="flex items-center h-full gap-0 ml-1">
         <button onClick={() => sendMessage("minimize")} className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">

@@ -30,6 +30,10 @@ internal class Program
     private const uint WM_GETMINMAXINFO = 0x0024;
     private const int MONITOR_DEFAULTTONEAREST = 2;
 
+    private const uint WM_SYSCOMMAND = 0x0112;
+    private const int SC_MOVE = 0xF010;
+    private const int HTCAPTION = 2;
+
     private static WndProcDelegate _wndProcDelegate;
     private static IntPtr _oldWndProc;
 
@@ -79,10 +83,6 @@ internal class Program
 
     [DllImport("user32.dll")]
     private static extern int SendMessage(IntPtr hWnd, uint Msg, int wParam, int lParam);
-
-    private const uint WM_SYSCOMMAND = 0x0112;
-    private const int SC_MOVE = 0xF010;
-    private const int HTCAPTION = 2;
 
     private static IntPtr CustomWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
@@ -297,6 +297,7 @@ internal class Program
                             ReleaseCapture();
                             SendMessage(win.WindowHandle, WM_SYSCOMMAND, SC_MOVE | HTCAPTION, 0);
                         }
+
                         break;
                     case "openFolder":
                         _ = discoveryService.DisconnectFromPeerAsync();
@@ -420,6 +421,7 @@ internal class Program
                             ReleaseCapture();
                             SendMessage(win.WindowHandle, WM_SYSCOMMAND, SC_MOVE | HTCAPTION, 0);
                         }
+
                         break;
                 }
             }
