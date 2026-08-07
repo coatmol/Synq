@@ -83,7 +83,7 @@ export function ConnectModal({ isOpen: externalIsOpen, onClose, onPendingConnect
               <Modal.CloseTrigger>
                 <Button onPress={() => setIsOpen(false)} variant="secondary" className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-none">Cancel</Button>
               </Modal.CloseTrigger>
-              <Button onPress={handleConnect} className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-[0_0_15px_rgba(5,150,105,0.3)]">Connect</Button>
+              <Button onPress={handleConnect} className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-[0_0_15px_rgba(16,185,129,0.3)]">Connect</Button>
             </Modal.Footer>
           </Modal.Dialog>
         </Modal.Container>

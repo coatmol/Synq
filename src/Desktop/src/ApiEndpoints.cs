@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -112,7 +113,9 @@ public static class ApiEndpoints
                             !d.EndsWith(Path.DirectorySeparatorChar + ".synq"))
                 .Select(d => Path.GetRelativePath(root, d).Replace('\\', '/'));
 
-            return Results.Ok(new { files = allFiles, folders = allDirs });
+            var notebookName = new DirectoryInfo(root).Name;
+
+            return Results.Ok(new { files = allFiles, folders = allDirs, notebookName });
         });
 
         app.MapPost("/api/files",
@@ -320,6 +323,12 @@ public static class ApiEndpoints
             state.SaveSettings();
 
             return Results.Ok();
+        });
+
+        app.MapGet("/api/version", () =>
+        {
+            var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "1.0.0";
+            return Results.Ok(new { version });
         });
 
         // STUN Diagnostic Status

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useDocumentStore } from '../hooks/useDocumentHub';
 import { Dropdown, Modal, Button, Input } from "@heroui/react";
-import { Folder, FolderOpen, FileText, Plus, FolderPlus } from 'lucide-react';
+import {Folder, FolderOpen, FileText, Plus, FolderPlus, NotebookIcon} from 'lucide-react';
 
 interface TreeNode {
   name: string;
@@ -17,6 +17,7 @@ export function FileTree() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set([''])); // empty string is root
   const { setActiveFile, activeFile } = useDocumentStore();
   const [selectedFolder, setSelectedFolder] = useState<string>(''); // For new file/folder creation context
+  const [notebookName, setNotebookName] = useState<string>('Notebook');
   
   const [modalState, setModalState] = useState<{ type: 'createFile' | 'createFolder' | 'rename' | 'delete' | null, node?: TreeNode }>({ type: null });
   const [modalInput, setModalInput] = useState("");
@@ -26,6 +27,7 @@ export function FileTree() {
     const data = await api.getFiles();
     setFiles(data.files || []);
     setFolders(data.folders || []);
+    if (data.notebookName) setNotebookName(data.notebookName);
   };
 
   useEffect(() => {
@@ -196,7 +198,7 @@ export function FileTree() {
         <Dropdown isOpen={contextMenuNode === node.path} onOpenChange={(isOpen) => !isOpen && setContextMenuNode(null)}>
           <Dropdown.Trigger>
             <div 
-              className={`flex items-center justify-between group/item py-[6px] my-[1px] mr-2 ml-2 rounded-md text-[13px] font-medium transition-all duration-150 cursor-pointer ${isActive ? 'bg-zinc-800/80 text-emerald-400 shadow-sm' : isSelectedFolder ? 'bg-zinc-800/40 text-emerald-300' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}
+              className={`flex items-center justify-between group/item py-[6px] my-[1px] mr-2 ml-2 rounded-md text-[13px] font-medium transition-all duration-150 cursor-pointer ${isActive ? 'bg-emerald-500 text-white shadow-sm' : isSelectedFolder ? 'bg-zinc-800/40 text-emerald-400' : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'}`}
               style={{ paddingLeft: `${level * 16 + 6}px`, paddingRight: '6px' }}
           onClick={(e) => {
             e.stopPropagation();
@@ -219,9 +221,9 @@ export function FileTree() {
         >
           <div className="flex items-center gap-2 truncate">
             {node.isFolder ? (
-               isExpanded ? <FolderOpen className={`w-4 h-4 shrink-0 transition-colors ${isActive || isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-500'}`} /> : <Folder className={`w-4 h-4 shrink-0 transition-colors ${isActive || isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-500'}`} />
+               isExpanded ? <FolderOpen className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-400'}`} /> : <Folder className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-400'}`} />
             ) : (
-               <FileText className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-emerald-400' : 'text-zinc-600 group-hover/item:text-zinc-400'}`} />
+               <FileText className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-zinc-600 group-hover/item:text-zinc-400'}`} />
             )}
             <span className="truncate select-none">{node.name}</span>
           </div>
@@ -260,56 +262,21 @@ export function FileTree() {
       onDrop={(e) => handleDrop(e, '')}
     >
       <div className="flex items-center justify-between mb-3 select-none px-2 pt-2 pb-2 border-b border-zinc-800/30">
-        <Dropdown>
-          <Dropdown.Trigger>
-            <Button 
-              variant="ghost"
-              className="border-none min-w-0 px-2 h-7 text-xs font-bold text-zinc-500 hover:text-zinc-300 uppercase tracking-widest hover:bg-zinc-800/50 rounded transition-colors focus:outline-none"
-            >
-              Workspace
-            </Button>
-          </Dropdown.Trigger>
-          <Dropdown.Popover className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-2xl v3 \'/min-w-50">
-            <Dropdown.Menu aria-label="File Options" className="p-1">
-              <Dropdown.Item key="new" onPress={() => window.dispatchEvent(new Event('trigger-new-file'))} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
-                New Document
-              </Dropdown.Item>
-              <Dropdown.Item key="open" onPress={() => {
-                if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
-                  (window as any).external.sendMessage(JSON.stringify({ action: "openFolder" }));
-                }
-              }} className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
-                Open Folder...
-              </Dropdown.Item>
-              <Dropdown.Item key="close" onPress={() => {
-                if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
-                  (window as any).external.sendMessage(JSON.stringify({ action: "closeFolder" }));
-                  setTimeout(() => window.location.reload(), 100);
-                }
-              }} className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
-                Close folder
-              </Dropdown.Item>
-              <Dropdown.Item key="quit" onPress={() => {
-                if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
-                  (window as any).external.sendMessage(JSON.stringify({ action: "close" }));
-                }
-              }} className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
-                Quit Synq
-              </Dropdown.Item>
-            </Dropdown.Menu>
-          </Dropdown.Popover>
-        </Dropdown>
+        <p className="border-none min-w-0 h-7 flex items-center text-xs font-bold text-zinc-400 uppercase">
+          {<NotebookIcon className="w-4 h-4 mr-1.5" />}
+          {notebookName}
+        </p>
         <div className="flex items-center gap-1">
           <button 
             onClick={(e) => { e.stopPropagation(); handleCreateFile(); }}
-            className="text-zinc-500 hover:text-emerald-500 transition-colors p-1"
+            className="text-zinc-500 hover:text-emerald-400 transition-colors p-1"
             title="New File"
           >
             <Plus className="w-4 h-4" />
           </button>
           <button 
             onClick={(e) => { e.stopPropagation(); handleCreateFolder(); }}
-            className="text-zinc-500 hover:text-emerald-500 transition-colors p-1"
+            className="text-zinc-500 hover:text-emerald-400 transition-colors p-1"
             title="New Folder"
           >
             <FolderPlus className="w-4 h-4" />

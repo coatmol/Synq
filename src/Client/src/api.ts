@@ -7,7 +7,7 @@ export const getBaseUrl = () => {
 export const BASE_URL = getBaseUrl();
 
 export const api = {
-  getFiles: async (): Promise<{files: string[], folders: string[]}> => {
+  getFiles: async (): Promise<{files: string[], folders: string[], notebookName?: string}> => {
     try {
       const response = await fetch(`${BASE_URL}/api/files`);
       if (response.ok) {
@@ -177,6 +177,19 @@ export const api = {
       }
     } catch (e) {
       console.error("Failed to fetch settings", e);
+    }
+    return null;
+  },
+
+  getVersion: async (): Promise<string | null> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/version`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.version;
+      }
+    } catch (e) {
+      console.error("Failed to fetch version", e);
     }
     return null;
   },

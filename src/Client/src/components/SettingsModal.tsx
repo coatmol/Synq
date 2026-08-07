@@ -1,7 +1,7 @@
 import {Modal, Button, TextField, Label, Input, Description, Switch} from "@heroui/react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Settings, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 
 import { toast } from "sonner";
 import * as React from "react";
@@ -20,6 +20,10 @@ export function SettingsModal() {
         }
       }
     });
+    
+    const handleOpen = () => setIsOpen(true);
+    window.addEventListener('open-settings', handleOpen);
+    return () => window.removeEventListener('open-settings', handleOpen);
   }, []);
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,9 +43,6 @@ export function SettingsModal() {
   };
   return (
     <>
-      <Button onPress={() => setIsOpen(true)} variant="secondary" className="h-7 w-7 p-0 min-w-0 bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 border-none transition-all rounded-md cursor-pointer">
-        <Settings className="w-4 h-4" />
-      </Button>
       <Modal isOpen={isOpen} onOpenChange={setIsOpen}>
         <Modal.Backdrop className="bg-black/60 backdrop-blur-sm">
           <Modal.Container>
