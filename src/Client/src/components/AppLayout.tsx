@@ -11,7 +11,7 @@ import { api } from "../api";
 import { useDocumentStore, useDocumentHub } from "../hooks/useDocumentHub";
 import { FileTree } from "./FileTree";
 import { DeletedFileBanner } from "./DeletedFileBanner";
-import { X, FileText, Users } from "lucide-react";
+import { X, FileText, Users, Menu } from "lucide-react";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -19,6 +19,15 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [peers, setPeers] = useState<any[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   const { activeFile, setActiveFile, openFiles, setOpenFiles, deletedOpenFiles, setDeletedOpenFiles, isConnected, documentStats } = useDocumentStore();
   const { fetchDocument } = useDocumentHub();
 
@@ -73,9 +82,28 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#1e1e1e] text-zinc-50 dark selection:bg-emerald-500/30 font-sans">
+      {/* Mobile Sidebar Overlay */}
+      {isMobile && showMobileMenu && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="w-64 bg-[#18181b] h-full flex flex-col shadow-2xl z-50">
+            <div className="flex items-center justify-between h-10.5 shrink-0 border-b border-[#202020] px-2">
+              <FileMenu />
+              <button onClick={() => setShowMobileMenu(false)} className="p-1 text-zinc-400 hover:text-zinc-100 rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden" onClick={() => setShowMobileMenu(false)}>
+              <FileTree />
+            </div>
+          </div>
+          <div className="flex-1 bg-black/50" onClick={() => setShowMobileMenu(false)} />
+        </div>
+      )}
+
       <PanelGroup direction="horizontal" className="flex-1 w-full overflow-hidden">
         {/* Sidebar */}
-        <Panel defaultSize="20" minSize="15" maxSize="40" className="flex flex-col bg-[#18181b]">
+        {!isMobile && (
+        <Panel defaultSize={20} className="flex flex-col bg-[#18181b]">
           <div 
             className="flex items-center h-10.5 shrink-0 border-b border-[#202020] pl-2" 
             style={{ WebkitAppRegion: 'drag' } as any}
@@ -93,12 +121,15 @@ export function AppLayout({ children }: AppLayoutProps) {
           </div>
           <FileTree />
         </Panel>
+        )}
 
         {/* Resizer */}
+        {!isMobile && (
         <PanelResizeHandle className="w-1 hover:bg-emerald-500/50 active:bg-emerald-500 transition-colors cursor-col-resize z-50" />
+        )}
 
         {/* Main Workspace */}
-        <Panel defaultSize="80" className="flex flex-col overflow-hidden relative bg-[#1e1e1e]">
+        <Panel defaultSize={isMobile ? 100 : 80} className="flex flex-col overflow-hidden relative bg-[#1e1e1e]">
           <div 
             className="flex items-end justify-between h-10.5 shrink-0 bg-[#1e1e1e] border-b border-[#202020]" 
             style={{ WebkitAppRegion: 'drag' } as any}
@@ -120,6 +151,15 @@ export function AppLayout({ children }: AppLayoutProps) {
                 }
               }}
             >
+              {isMobile && (
+                <button 
+                  onClick={() => setShowMobileMenu(true)} 
+                  className="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded mr-2 h-7 mt-1.5 flex items-center justify-center shrink-0"
+                  style={{ WebkitAppRegion: 'no-drag' } as any}
+                >
+                  <Menu className="w-4 h-4" />
+                </button>
+              )}
               {openFiles.length > 0 && openFiles.map(file => {
                 const isActive = activeFile === file;
                 return (
@@ -175,7 +215,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       </PanelGroup>
 
       {/* Status Bar */}
-      <footer className="h-7 border-t border-zinc-800/80 bg-[#1e1e1e] flex items-center justify-between pl-3 pr-4 text-[11px] font-medium text-zinc-500 tracking-wide select-none z-10">
+      <footer className="h-auto min-h-7 py-1 md:py-0 border-t border-zinc-800/80 bg-[#1e1e1e] flex flex-wrap gap-2 items-center justify-between pl-3 pr-4 text-[11px] font-medium text-zinc-500 tracking-wide select-none z-10">
         <div className="flex items-center">
           {!isConnected && (
             <div className="flex items-center gap-2 group cursor-pointer hover:text-zinc-300 transition-colors mr-6">

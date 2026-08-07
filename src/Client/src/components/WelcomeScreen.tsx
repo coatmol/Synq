@@ -11,6 +11,7 @@ interface WelcomeScreenProps {
 }
 
 export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
+    const isDesktop = typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage;
     const [showPeers, setShowPeers] = useState(false);
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [peers, setPeers] = useState<any[]>([]);
@@ -111,10 +112,10 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
     };
 
     return (
-        <div className="flex w-full h-screen bg-[#18181b] text-zinc-300 overflow-hidden font-sans">
+        <div className="flex flex-col-reverse md:flex-row w-full h-screen bg-[#18181b] text-zinc-300 overflow-hidden font-sans">
 
-            {/* Left Sidebar - Recent Vaults */}
-            <div className="w-64 bg-[#18181b] border-r border-zinc-800/60 flex flex-col select-none">
+            {/* Left Sidebar / Bottom List - Recent Vaults */}
+            <div className="w-full md:w-64 h-[40vh] md:h-full bg-[#18181b] border-t md:border-t-0 md:border-r border-zinc-800/60 flex flex-col select-none shrink-0">
                 <div
                     className="h-10.5 shrink-0 w-full"
                     onPointerDown={(e) => {
@@ -182,30 +183,32 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
                     }}
                 >
                     {/* Window Controls for Chromeless */}
-                    <div className="flex items-center h-full">
-                        <button onClick={() => {
-                            if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({action: "minimize"}));
-                        }}
-                                className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
-                            <Minus className="w-3.5 h-3.5"/>
-                        </button>
-                        <button onClick={() => {
-                            if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({action: "maximize"}));
-                        }}
-                                className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
-                            <Square className="w-3 h-3"/>
-                        </button>
-                        <button onClick={() => {
-                            if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({action: "close"}));
-                        }}
-                                className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-red-500 hover:text-white transition-colors">
-                            <X className="w-3.5 h-3.5"/>
-                        </button>
-                    </div>
+                    {isDesktop && (
+                        <div className="flex items-center h-full">
+                            <button onClick={() => {
+                                if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({action: "minimize"}));
+                            }}
+                                    className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+                                <Minus className="w-3.5 h-3.5"/>
+                            </button>
+                            <button onClick={() => {
+                                if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({action: "maximize"}));
+                            }}
+                                    className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+                                <Square className="w-3 h-3"/>
+                            </button>
+                            <button onClick={() => {
+                                if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({action: "close"}));
+                            }}
+                                    className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-red-500 hover:text-white transition-colors">
+                                <X className="w-3.5 h-3.5"/>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex-1 flex flex-col items-center justify-center pt-10">
-                    <div className="flex flex-col items-center max-w-md w-full">
+                    <div className="flex flex-col items-center max-w-md w-full px-6">
 
                         {/* Logo & Title */}
                         <div className="flex flex-col items-center mb-10 select-none">
