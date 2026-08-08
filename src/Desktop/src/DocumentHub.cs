@@ -66,6 +66,19 @@ public class DocumentHub : Hub
         await Clients.Others.SendAsync("SyncNodes", filename, nodes);
     }
 
+    public async Task UpdateFile(string filename, string content)
+    {
+        _manager.OverwriteAndSaveDocument(filename, content);
+        await Clients.Others.SendAsync("DocumentUpdated", filename, content);
+        await _router.BroadcastFileEventAsync("FileUpdated", filename, content);
+    }
+
+    public async Task FileUpdated(string filename, string content)
+    {
+        _manager.OverwriteAndSaveDocument(filename, content);
+        await Clients.Others.SendAsync("DocumentUpdated", filename, content);
+    }
+
     public async Task ItemRenamed(string oldPath, string newPath)
     {
         await Clients.Others.SendAsync("ItemRenamed", oldPath, newPath);

@@ -23,13 +23,13 @@ const fetchWithAuth = async (url: string, options?: RequestInit) => {
   const token = getToken();
   const authUrl = new URL(url);
   if (token) authUrl.searchParams.append("access_token", token);
-  
+
   const response = await fetch(authUrl.toString(), options);
   return handleResponse(response);
 };
 
 export const api = {
-  getFiles: async (): Promise<{files: string[], folders: string[], notebookName?: string}> => {
+  getFiles: async (): Promise<{ files: string[], folders: string[], notebookName?: string }> => {
     try {
       const response = await fetchWithAuth(`${BASE_URL}/api/files`);
       if (response.ok) {
@@ -38,15 +38,15 @@ export const api = {
     } catch (e) {
       console.error("Failed to fetch files", e);
     }
-    return { files: [], folders: [] };
+    return {files: [], folders: []};
   },
-  
+
   createFile: async (filename: string): Promise<boolean> => {
     try {
       const response = await fetchWithAuth(`${BASE_URL}/api/files`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename })
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({filename})
       });
       return response.ok;
     } catch (e) {
@@ -71,8 +71,8 @@ export const api = {
     try {
       const response = await fetchWithAuth(`${BASE_URL}/api/files/rename`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ oldPath, newPath })
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({oldPath, newPath})
       });
       return response.ok;
     } catch (e) {
@@ -80,13 +80,13 @@ export const api = {
       return false;
     }
   },
-  
+
   createFolder: async (path: string): Promise<boolean> => {
     try {
       const response = await fetchWithAuth(`${BASE_URL}/api/folders`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path })
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({path})
       });
       return response.ok;
     } catch (e) {
@@ -94,7 +94,7 @@ export const api = {
       return false;
     }
   },
-  
+
   deleteFolder: async (path: string): Promise<boolean> => {
     try {
       const response = await fetchWithAuth(`${BASE_URL}/api/folders/${encodeURIComponent(path)}`, {
@@ -106,13 +106,13 @@ export const api = {
       return false;
     }
   },
-  
+
   moveItem: async (oldPath: string, newPath: string): Promise<boolean> => {
     try {
       const response = await fetch(`${BASE_URL}/api/files/rename`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ oldPath, newPath })
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({oldPath, newPath})
       });
       return response.ok;
     } catch (e) {
@@ -120,7 +120,7 @@ export const api = {
       return false;
     }
   },
-  
+
   getDocument: async (filename: string): Promise<string> => {
     try {
       const response = await fetchWithAuth(`${BASE_URL}/api/document?filename=${encodeURIComponent(filename)}`);
@@ -134,13 +134,13 @@ export const api = {
       return "";
     }
   },
-  
+
   openNative: async (path: string): Promise<boolean> => {
     try {
       const response = await fetchWithAuth(`${BASE_URL}/api/files/open-native`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path })
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({path})
       });
       return response.ok;
     } catch (e) {
@@ -167,13 +167,13 @@ export const api = {
         (window as any).external.receiveMessage((message: string) => {
           if (message === "connectSuccess") resolve(true);
         });
-        (window as any).external.sendMessage(JSON.stringify({ action: "connectPeer", ip, port }));
+        (window as any).external.sendMessage(JSON.stringify({action: "connectPeer", ip, port}));
       } else {
         // Fallback for non-photino environments
         fetch(`${BASE_URL}/api/connect`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ip, port })
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ip, port})
         }).then(res => resolve(res.ok)).catch(() => resolve(false));
       }
     });
@@ -183,7 +183,7 @@ export const api = {
     try {
       const response = await fetch(`${BASE_URL}/api/peers/manual`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify(peer)
       });
       return response.ok;
@@ -234,7 +234,7 @@ export const api = {
     try {
       const response = await fetchWithAuth(`${BASE_URL}/api/settings`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify(settings)
       });
       return response.ok;
@@ -256,16 +256,16 @@ export const api = {
   },
 
   // WAN Token API
-  createWanOffer: async (): Promise<{token: string, pendingId: string}> => {
-    const res = await fetch(`${BASE_URL}/api/wan/create-offer`, { method: 'POST' });
+  createWanOffer: async (): Promise<{ token: string, pendingId: string }> => {
+    const res = await fetch(`${BASE_URL}/api/wan/create-offer`, {method: 'POST'});
     return res.json();
   },
 
   acceptWanOffer: async (token: string): Promise<{ token: string }> => {
     const res = await fetch(`${BASE_URL}/api/wan/accept-offer`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({token})
     });
     return res.json();
   },
@@ -273,8 +273,8 @@ export const api = {
   completeWanHandshake: async (token: string, pendingId: string): Promise<void> => {
     await fetch(`${BASE_URL}/api/wan/complete-handshake`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, pendingId })
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({token, pendingId})
     });
   },
 

@@ -1,113 +1,146 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Fira+Code:wght@300..700&display=swap');
 
 @import "tailwindcss";
+
 @plugin "@tailwindcss/typography";
 @import "@heroui/styles";
 
 @theme {
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-mono: 'Fira Code', ui-monospace, monospace;
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-mono: 'Fira Code', ui-monospace, monospace;
 }
 
 /* Custom scrollbar utility for the editor */
 @layer utilities {
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: #3f3f46;
-    border-radius: 10px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: #52525b;
-  }
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #3f3f46;
+        border-radius: 10px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: #52525b;
+    }
 }
 
 body {
-  margin: 0;
-  padding: 0;
-  background-color: #09090b; /* zinc-950 */
-  color: #fafafa; /* zinc-50 */
-  font-family: 'Inter', system-ui, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #09090b; /* zinc-950 */
+    color: #fafafa; /* zinc-50 */
+    font-family: 'Inter', system-ui, sans-serif;
 }
 
 /* Global Markdown Editor Overrides */
 .cm-cursor {
-  min-height: 20px !important;
+    min-height: 20px !important;
 }
 
-.cm-editor .cm-line.cm-heading1 { font-size: 2.25em !important; font-weight: 800 !important; line-height: 1.2 !important; }
-.cm-editor .cm-line.cm-heading2 { font-size: 1.75em !important; font-weight: 700 !important; line-height: 1.3 !important; }
-.cm-editor .cm-line.cm-heading3 { font-size: 1.5em !important; font-weight: 600 !important; line-height: 1.4 !important; }
-.cm-editor .cm-line.cm-heading4 { font-size: 1.25em !important; font-weight: 600 !important; }
-.cm-editor .cm-line.cm-heading5 { font-size: 1.1em !important; font-weight: 500 !important; }
-.cm-editor .cm-line.cm-heading6 { font-size: 1em !important; font-weight: 500 !important; color: #a1a1aa !important; }
+.cm-editor .cm-line.cm-heading1 {
+    font-size: 2.25em !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+}
+
+.cm-editor .cm-line.cm-heading2 {
+    font-size: 1.75em !important;
+    font-weight: 700 !important;
+    line-height: 1.3 !important;
+}
+
+.cm-editor .cm-line.cm-heading3 {
+    font-size: 1.5em !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+}
+
+.cm-editor .cm-line.cm-heading4 {
+    font-size: 1.25em !important;
+    font-weight: 600 !important;
+}
+
+.cm-editor .cm-line.cm-heading5 {
+    font-size: 1.1em !important;
+    font-weight: 500 !important;
+}
+
+.cm-editor .cm-line.cm-heading6 {
+    font-size: 1em !important;
+    font-weight: 500 !important;
+    color: #a1a1aa !important;
+}
 
 .cm-codeblock-line {
-  background-color: #18181b !important;
+    background-color: #18181b !important;
 }
 
 .cm-codeblock-first-line {
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-  padding-top: 4px;
-  position: relative;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding-top: 4px;
+    position: relative;
 }
 
 .cm-codeblock-last-line {
-  border-bottom-left-radius: 8px;
-  border-bottom-right-radius: 8px;
-  padding-bottom: 4px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    padding-bottom: 4px;
 }
 
 .cm-codeblock-lang-label {
-  position: absolute;
-  right: 12px;
-  top: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #71717a; /* zinc-500 */
-  text-transform: uppercase;
-  pointer-events: none;
-  font-family: 'Inter', system-ui, sans-serif;
+    position: absolute;
+    right: 12px;
+    top: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #71717a; /* zinc-500 */
+    text-transform: uppercase;
+    pointer-events: none;
+    font-family: 'Inter', system-ui, sans-serif;
 }
 
 .cm-atomic-link {
-  cursor: pointer !important;
+    cursor: pointer !important;
 }
 
 /* Hide the invisible atomic-editor trailing link icon since we make the whole link clickable */
 .cm-atomic-link::after {
-  display: none !important;
+    display: none !important;
 }
 
 /* Ensure horizontal rules are visible */
 .cm-line.cm-atomic-hr::after {
-  content: "";
-  display: block;
-  height: 2px;
-  background-color: #52525b !important; /* zinc-600 */
-  margin: 0.5em 0;
-  border-radius: 1px;
-  width: 100%;
+    content: "";
+    display: block;
+    height: 2px;
+    background-color: #52525b !important; /* zinc-600 */
+    margin: 0.5em 0;
+    border-radius: 1px;
+    width: 100%;
 }
 
 /* Table borders */
 .cm-editor table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 1em 0;
-  border: 1px solid #3f3f46;
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+    border: 1px solid #3f3f46;
 }
+
 .cm-editor th, .cm-editor td {
-  border: 1px solid #3f3f46;
-  padding: 0.5em;
-  text-align: left;
+    border: 1px solid #3f3f46;
+    padding: 0.5em;
+    text-align: left;
 }
+
 .cm-editor th {
-  background-color: #27272a;
+    background-color: #27272a;
 }

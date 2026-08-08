@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Desktop;
 
@@ -29,12 +30,14 @@ public class SyncManifest
 public class SyncManager
 {
     private readonly DocumentManager _documentManager;
+    private readonly IHubContext<DocumentHub> _hubContext;
     private readonly WorkspaceState _state;
 
-    public SyncManager(WorkspaceState state, DocumentManager documentManager)
+    public SyncManager(WorkspaceState state, DocumentManager documentManager, IHubContext<DocumentHub> hubContext)
     {
         _state = state;
         _documentManager = documentManager;
+        _hubContext = hubContext;
     }
 
     private string GetManifestPath(string folderPath)
@@ -289,7 +292,9 @@ public class SyncManager
         var content =
             await http.GetStringAsync($"{peerBaseUrl}/api/rawfile?filename={Uri.EscapeDataString(relativePath)}");
         File.WriteAllText(path, content);
-        _documentManager.GetOrCreateDocument(relativePath); // Update memory
+        var doc = _documentManager.GetOrCreateDocument(relativePath);
+        doc.OverwriteFromContent(content); // Update memory correctly!
+        await _hubContext.Clients.All.SendAsync("DocumentUpdated", relativePath, content);
     }
 
 

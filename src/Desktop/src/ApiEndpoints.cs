@@ -91,7 +91,8 @@ public static class ApiEndpoints
 
                 var content = data.RootElement.GetProperty("content").GetString();
                 await File.WriteAllTextAsync(path, content!);
-                docManager.GetOrCreateDocument(filename!);
+                var doc = docManager.GetOrCreateDocument(filename!);
+                doc.OverwriteFromContent(content!);
 
                 // Re-init local folder to update hashes
                 sync.InitializeLocalFolder();
@@ -105,10 +106,14 @@ public static class ApiEndpoints
             if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
                 return Results.Ok(new { files = new string[0], folders = new string[0] });
 
-            var allFiles = Directory.GetFiles(root, "*.md", SearchOption.AllDirectories)
-                .Where(f => !f.Contains(Path.DirectorySeparatorChar + ".synq" + Path.DirectorySeparatorChar) &&
-                            !f.EndsWith(Path.DirectorySeparatorChar + ".synq"))
-                .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/'));
+
+            var searchPatterns = new[] { "*.md", "*.excalidraw" };
+
+            var allFiles = searchPatterns.SelectMany(pattern =>
+                Directory.GetFiles(root, pattern, SearchOption.AllDirectories)
+                    .Where(f => !f.Contains(Path.DirectorySeparatorChar + ".synq" + Path.DirectorySeparatorChar) &&
+                                !f.EndsWith(Path.DirectorySeparatorChar + ".synq"))
+                    .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/')));
 
             var allDirs = Directory.GetDirectories(root, "*", SearchOption.AllDirectories)
                 .Where(d => !d.Contains(Path.DirectorySeparatorChar + ".synq" + Path.DirectorySeparatorChar) &&
@@ -128,7 +133,7 @@ public static class ApiEndpoints
                 var data = JsonDocument.Parse(body);
                 var filename = data.RootElement.GetProperty("filename").GetString();
                 if (string.IsNullOrEmpty(filename)) return Results.BadRequest();
-                if (!filename.EndsWith(".md")) filename += ".md";
+                if (!filename.EndsWith(".md") && !filename.EndsWith(".excalidraw")) filename += ".md";
 
                 var filePath = PathUtils.GetSafePath(state.CurrentFolder, filename);
                 if (filePath == null) return Results.BadRequest();
@@ -136,7 +141,14 @@ public static class ApiEndpoints
                 if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
                 if (!File.Exists(filePath))
-                    await File.WriteAllTextAsync(filePath, "# " + Path.GetFileNameWithoutExtension(filename));
+                {
+                    if (filename.EndsWith(".md"))
+                        await File.WriteAllTextAsync(filePath, "# " + Path.GetFileNameWithoutExtension(filename));
+                    else if (filename.EndsWith(".excalidraw"))
+                        await File.WriteAllTextAsync(filePath,
+                            "{\"type\":\"excalidraw\",\"version\":2,\"source\":\"https://excalidraw.com\",\"elements\":[],\"appState\":{\"gridSize\": 20, \"gridStep\": 5, \"gridModeEnabled\": true, \"viewBackgroundColor\":\"#ffffff\"}}");
+                }
+
                 sync.InitializeLocalFolder();
                 await hubContext.Clients.All.SendAsync("FileCreated", filename);
                 var discovery = req.HttpContext.RequestServices.GetService<LanDiscoveryService>();
