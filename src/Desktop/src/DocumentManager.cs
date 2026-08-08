@@ -13,6 +13,7 @@ public class DocumentManager
     {
         _state = state;
         _peerId = Environment.MachineName;
+        _state.FolderChanged += () => _documents.Clear();
     }
 
     public TextSequence GetOrCreateDocument(string filename)

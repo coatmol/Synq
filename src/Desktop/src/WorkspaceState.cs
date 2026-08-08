@@ -85,6 +85,8 @@ public class WorkspaceState
         }
     }
 
+    public event Action? FolderChanged;
+
     public string CurrentFolder
     {
         get => _currentFolder;
@@ -94,6 +96,7 @@ public class WorkspaceState
             {
                 _currentFolder = value;
                 AddRecentFolder(value);
+                FolderChanged?.Invoke();
             }
         }
     }
