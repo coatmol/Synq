@@ -27,7 +27,8 @@ export function LanPeersPanel() {
 
     const fetchPeers = async () => {
       const wanData = await api.getWanPeers();
-      setWanPeers(wanData);
+      const lanData = await api.getPeers();
+      setWanPeers([...lanData.map((p: any) => ({...p, isWan: false})), ...wanData.map((p: any) => ({...p, isWan: true}))]);
     };
     fetchPeers();
     const interval = setInterval(fetchPeers, 5000);
@@ -37,7 +38,7 @@ export function LanPeersPanel() {
   return (
     <div className="flex items-center gap-2 pr-2">
       <div className="flex items-center -space-x-1.5 overflow-hidden px-2 py-1">
-        {[self, ...wanPeers.map(p => ({...p, isWan: true}))].filter(Boolean).map(peer => (
+        {[self, ...wanPeers].filter(Boolean).map(peer => (
           <Tooltip key={peer.id} delay={0} closeDelay={0}>
             <Tooltip.Trigger>
               <div

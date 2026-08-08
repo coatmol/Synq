@@ -91,7 +91,8 @@ public static class ApiEndpoints
 
                 var content = data.RootElement.GetProperty("content").GetString();
                 await File.WriteAllTextAsync(path, content!);
-                docManager.GetOrCreateDocument(filename!);
+                var doc = docManager.GetOrCreateDocument(filename!);
+                doc.OverwriteFromContent(content!);
 
                 // Re-init local folder to update hashes
                 sync.InitializeLocalFolder();

@@ -49,6 +49,13 @@ public class DocumentManager
             }
     }
 
+    public void OverwriteAndSaveDocument(string filename, string content)
+    {
+        var doc = GetOrCreateDocument(filename);
+        doc.OverwriteFromContent(content);
+        SaveToDisk(filename);
+    }
+
     public void LoadAllFromDisk()
     {
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return;

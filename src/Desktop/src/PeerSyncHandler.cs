@@ -116,6 +116,28 @@ public class PeerSyncHandler
                 }
 
                 break;
+                
+            case "FileUpdated":
+                if (args.Length >= 2)
+                {
+                    var filename2 = args[0].GetString();
+                    var content = args[1].GetString();
+                    var fp = PathUtils.GetSafePath(_state.CurrentFolder, filename2!);
+                    if (fp != null)
+                    {
+                        var dir = Path.GetDirectoryName(fp);
+                        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                            Directory.CreateDirectory(dir);
+                        await File.WriteAllTextAsync(fp, content);
+                        
+                        var doc = _manager.GetOrCreateDocument(filename2);
+                        doc.OverwriteFromContent(content);
+                    }
+
+                    _syncManager.InitializeLocalFolder();
+                    await _hubContext.Clients.All.SendAsync("DocumentUpdated", filename2, content);
+                }
+                break;
         }
     }
 
@@ -297,7 +319,9 @@ public class PeerSyncHandler
                     if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                         Directory.CreateDirectory(dir);
                     await File.WriteAllTextAsync(path, content);
-                    _manager.GetOrCreateDocument(filename);
+                    var doc = _manager.GetOrCreateDocument(filename);
+                    doc.OverwriteFromContent(content);
+                    await _hubContext.Clients.All.SendAsync("DocumentUpdated", filename, content);
                 }
             }
         }

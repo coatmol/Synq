@@ -251,6 +251,13 @@ public class LanDiscoveryService : IDisposable
                             new[] { JsonSerializer.SerializeToElement(path) });
                     });
 
+                PeerConnection.On<string, string>("DocumentUpdated",
+                    async (filename, content) =>
+                    {
+                        await _syncHandler.HandleFileEvent("FileUpdated",
+                            new[] { JsonSerializer.SerializeToElement(filename), JsonSerializer.SerializeToElement(content) });
+                    });
+
                 await PeerConnection.StartAsync();
 
                 var transport = new LanSignalRTransport($"lan-{ip}:{port}", PeerConnection);
@@ -283,7 +290,7 @@ public class LanSignalRTransport : IPeerTransport
         => await Connection.SendAsync("SyncNodes", filename, nodes);
 
     public async Task SendFileEventAsync(string eventName, params object[] args)
-        => await Connection.SendAsync(eventName, args);
+        => await Connection.SendCoreAsync(eventName, args);
 
     public Task SendEnvelopeAsync(MeshEnvelope envelope)
         => Task.CompletedTask; // LAN peers don't use envelope protocol

@@ -33,7 +33,7 @@ export const useDocumentStore = create<DocumentState>((set) => ({
     // Atomically set both activeFile and text from cache in one update,
     // so the editor remounts with the correct content immediately.
     const cached = file ? documentCache.get(file) : undefined;
-    const textUpdate = cached !== undefined ? {text: cached} : {};
+    const textUpdate = cached !== undefined ? {text: cached, isLoading: false} : {isLoading: true};
     if (file && !state.openFiles.includes(file)) {
       return {
         activeFile: file,
@@ -244,5 +244,14 @@ export function useDocumentHub() {
     }
   }, []);
 
-  return {insertText, deleteText, fetchDocument: fetchDocumentImpl};
+  const updateFile = useCallback(async (content: string) => {
+    const activeFile = useDocumentStore.getState().activeFile;
+    if (!activeFile) return;
+    const conn = singletonConnection;
+    if (conn?.state === signalR.HubConnectionState.Connected) {
+      await conn.invoke("UpdateFile", activeFile, content);
+    }
+  }, []);
+
+  return {insertText, deleteText, updateFile, fetchDocument: fetchDocumentImpl};
 }

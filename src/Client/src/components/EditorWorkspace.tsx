@@ -3,7 +3,7 @@ import {useCallback, useEffect, useRef, useState, useMemo} from "react";
 import {Group as PanelGroup, Panel, Separator as PanelResizeHandle} from "react-resizable-panels";
 import {Spinner} from "@heroui/react";
 import {useBufferedInput} from "../hooks/useBufferedInput";
-import {useDocumentStore} from "../hooks/useDocumentHub";
+import {useDocumentHub, useDocumentStore} from "../hooks/useDocumentHub";
 import DiffMatchPatch from "diff-match-patch";
 import {AtomicCodeMirrorEditor} from "@atomic-editor/editor";
 import type {AtomicCodeMirrorEditorHandle} from "@atomic-editor/editor";
@@ -20,12 +20,55 @@ import "@excalidraw/excalidraw/index.css";
 export function EditorWorkspace() {
   const {text: remoteText, setDocumentStats, isLoading, activeFile, activeFileType} = useDocumentStore();
   const {localText, setLocalText, remoteUpdateText, queueInsert, queueDelete} = useBufferedInput();
+  const {updateFile} = useDocumentHub();
+
+  const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
+  const lastExcalidrawJson = useRef("[]");
+  const excalidrawDebounce = useRef<NodeJS.Timeout | null>(null);
 
   const textareaRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
+  const [loadedFile, setLoadedFile] = useState<string | null>(null);
+  const [initialMarkdown, setInitialMarkdown] = useState('');
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const initialMarkdown = useMemo(() => localText, [activeFile]);
+  useEffect(() => {
+    if (!isLoading && activeFile && loadedFile !== activeFile) {
+      setInitialMarkdown(remoteText);
+      setLoadedFile(activeFile);
+      lastExcalidrawJson.current = "[]";
+      setExcalidrawAPI(null);
+    }
+  }, [activeFile, isLoading, remoteText, loadedFile]);
+
+  const excalidrawInitialData = useMemo(() => {
+    if (!initialMarkdown) return { elements: [] };
+    try {
+      const parsed = JSON.parse(initialMarkdown);
+      const elements = Array.isArray(parsed) ? parsed : parsed.elements || [];
+      lastExcalidrawJson.current = JSON.stringify(elements, null, 2);
+      return { elements };
+    } catch(e) {
+      return { elements: [] };
+    }
+  }, [initialMarkdown]);
+
+  useEffect(() => {
+    if (!excalidrawAPI || !remoteUpdateText || activeFileType !== 'excalidraw') return;
+    
+    if (remoteUpdateText.text !== lastExcalidrawJson.current) {
+      try {
+        const parsed = JSON.parse(remoteUpdateText.text);
+        const elements = Array.isArray(parsed) ? parsed : parsed.elements || [];
+        excalidrawAPI.updateScene({ elements });
+        // Fetch back the elements directly from Excalidraw after it normalizes them, 
+        // to prevent the subsequent onChange from detecting a false difference.
+        const newElements = excalidrawAPI.getSceneElements();
+        lastExcalidrawJson.current = JSON.stringify(newElements, null, 2);
+      } catch (e) {
+        console.error("Failed to parse remote Excalidraw update", e);
+      }
+    }
+  }, [remoteUpdateText, excalidrawAPI, activeFileType]);
 
   const updateStats = useCallback((text: string, cursorIndex: number) => {
     const chars = text.length;
@@ -150,8 +193,8 @@ export function EditorWorkspace() {
   const handleLinkClick = useCallback((url: string) => window.open(url, "_blank"), []);
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#1e1e1e]">
-      {isLoading ? (
+    <div className="flex-col h-full w-full bg-[#1e1e1e] flex">
+      {isLoading || loadedFile !== activeFile ? (
         <div className="flex-1 flex flex-col items-center justify-center">
           <Spinner color="secondary" size="lg"/>
           <p className="text-zinc-500 mt-4 text-sm font-medium">Loading Document...</p>
@@ -182,10 +225,21 @@ export function EditorWorkspace() {
             ) : (
               <div className="flex-1 w-full h-full relative">
                 <Excalidraw
-                  initialData={initialMarkdown}
+                  excalidrawAPI={(api) => setExcalidrawAPI(api)}
+                  initialData={excalidrawInitialData}
                   theme={"dark"}
                   name={activeFile ?? "Untitled"}
                   gridModeEnabled={true}
+                  onChange={(elements) => {
+                    if (excalidrawDebounce.current) clearTimeout(excalidrawDebounce.current);
+                    excalidrawDebounce.current = setTimeout(() => {
+                      const newJson = JSON.stringify(elements, null, 2);
+                      if (newJson !== lastExcalidrawJson.current) {
+                        updateFile(newJson);
+                        lastExcalidrawJson.current = newJson;
+                      }
+                    }, 500);
+                  }}
                 />
               </div>
             )}
