@@ -24,7 +24,7 @@ export function AppLayout({children}: AppLayoutProps) {
   
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const os = searchParams.get('os') || 'windows';
-  const isNativeFrame = false; // Chromeless is re-enabled for all OS except Windows (which handles it differently)
+  const isNativeFrame = os === 'linux';
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);

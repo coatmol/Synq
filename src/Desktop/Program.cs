@@ -304,7 +304,7 @@ internal class Program
             .SetFileSystemAccessEnabled(true);
 
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) window.Center();
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) window.SetChromeless(true);
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) window.SetChromeless(true);
 
         window.Load(startUrl);
 

@@ -12,6 +12,10 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
   const isDesktop = typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage;
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const os = searchParams.get('os') || 'windows';
+  const isNativeFrame = os === 'linux';
+
   const [showPeers, setShowPeers] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [peers, setPeers] = useState<any[]>([]);
@@ -121,7 +125,7 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
         <div
           className="h-10.5 shrink-0 w-full"
           onPointerDown={(e) => {
-            if (e.target === e.currentTarget) {
+            if (!isNativeFrame && e.target === e.currentTarget) {
               if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
                 (window as any).external.sendMessage(JSON.stringify({action: "drag"}));
               }
@@ -177,7 +181,7 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
         <div
           className="absolute top-0 left-0 right-0 h-10.5 flex items-center justify-end"
           onPointerDown={(e) => {
-            if (e.target === e.currentTarget) {
+            if (!isNativeFrame && e.target === e.currentTarget) {
               if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
                 (window as any).external.sendMessage(JSON.stringify({action: "drag"}));
               }
@@ -185,7 +189,7 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
           }}
         >
           {/* Window Controls for Chromeless */}
-          {isDesktop && (
+          {isDesktop && !isNativeFrame && (
             <div className="flex items-center h-full">
               <button onClick={() => {
                 if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({action: "minimize"}));
