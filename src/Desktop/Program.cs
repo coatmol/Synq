@@ -285,9 +285,12 @@ internal class Program
 
         // Launch Photino Native Desktop Window
         var isDevelopment = args.Contains("--dev");
+        var os = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "windows" :
+                 RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "mac" : "linux";
+
         var startUrl = isDevelopment
-            ? $"http://127.0.0.1:5173?backend={localServerUrl}"
-            : $"{localServerUrl}?backend={localServerUrl}";
+            ? $"http://127.0.0.1:5173?backend={localServerUrl}&os={os}"
+            : $"{localServerUrl}?backend={localServerUrl}&os={os}";
 
 
         var window = new PhotinoWindow()
@@ -301,7 +304,7 @@ internal class Program
             .SetSmoothScrollingEnabled(true)
             .SetFileSystemAccessEnabled(true);
 
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) window.SetChromeless(true);
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) window.SetChromeless(true);
 
         window.Load(startUrl);
 

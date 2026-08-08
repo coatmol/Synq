@@ -21,6 +21,10 @@ export function AppLayout({children}: AppLayoutProps) {
   const [peers, setPeers] = useState<any[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const os = searchParams.get('os') || 'windows';
+  const isNativeFrame = os === 'linux';
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -117,16 +121,16 @@ export function AppLayout({children}: AppLayoutProps) {
           <Panel defaultSize={20} className="flex flex-col bg-[#18181b]">
             <div
               className="flex items-center h-10.5 shrink-0 border-b border-[#202020] pl-2"
-              style={{WebkitAppRegion: 'drag'} as any}
+              style={isNativeFrame ? {} : {WebkitAppRegion: 'drag'} as any}
               onPointerDown={(e) => {
-                if (e.target === e.currentTarget) {
+                if (!isNativeFrame && e.target === e.currentTarget) {
                   if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
                     (window as any).external.sendMessage(JSON.stringify({action: "drag"}));
                   }
                 }
               }}
             >
-              <div style={{WebkitAppRegion: 'no-drag'} as any}>
+              <div style={isNativeFrame ? {} : {WebkitAppRegion: 'no-drag'} as any}>
                 <FileMenu/>
               </div>
             </div>
@@ -144,9 +148,9 @@ export function AppLayout({children}: AppLayoutProps) {
         <Panel defaultSize={isMobile ? 100 : 80} className="flex flex-col overflow-hidden relative bg-[#1e1e1e]">
           <div
             className="flex items-end justify-between h-10.5 shrink-0 bg-[#1e1e1e] border-b border-[#202020]"
-            style={{WebkitAppRegion: 'drag'} as any}
+            style={isNativeFrame ? {} : {WebkitAppRegion: 'drag'} as any}
             onPointerDown={(e) => {
-              if (e.target === e.currentTarget) {
+              if (!isNativeFrame && e.target === e.currentTarget) {
                 if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
                   (window as any).external.sendMessage(JSON.stringify({action: "drag"}));
                 }
@@ -156,7 +160,7 @@ export function AppLayout({children}: AppLayoutProps) {
             <div
               className="flex items-end h-full overflow-x-auto overflow-y-hidden custom-scrollbar pt-1 pl-2 gap-1.5 min-w-0 flex-1"
               onPointerDown={(e) => {
-                if (e.target === e.currentTarget) {
+                if (!isNativeFrame && e.target === e.currentTarget) {
                   if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
                     (window as any).external.sendMessage(JSON.stringify({action: "drag"}));
                   }
@@ -177,7 +181,7 @@ export function AppLayout({children}: AppLayoutProps) {
                 return (
                   <div
                     key={file}
-                    style={{WebkitAppRegion: 'no-drag'} as any}
+                    style={isNativeFrame ? {} : {WebkitAppRegion: 'no-drag'} as any}
                     onClick={() => {
                       if (!isActive) {
                         setActiveFile(file);
@@ -209,7 +213,7 @@ export function AppLayout({children}: AppLayoutProps) {
               })}
             </div>
             <div className="h-full shrink-0 flex items-center">
-              <WindowControls/>
+              <WindowControls isNativeFrame={isNativeFrame}/>
             </div>
           </div>
           {activeFile ? (

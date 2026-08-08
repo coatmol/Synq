@@ -55,7 +55,7 @@ export function FileMenu() {
   );
 }
 
-export function WindowControls() {
+export function WindowControls({isNativeFrame}: {isNativeFrame?: boolean}) {
   const isDesktop = typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage;
 
   const sendMessage = (action: string) => {
@@ -69,7 +69,7 @@ export function WindowControls() {
       <div className="flex items-center gap-3 pr-2 border-r border-zinc-800/80 h-full">
         <LanPeersPanel/>
       </div>
-      {isDesktop && (
+      {isDesktop && !isNativeFrame && (
         <div className="flex items-center h-full gap-0 ml-1">
           <button onClick={() => sendMessage("minimize")}
                   className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
