@@ -76,7 +76,7 @@ export function SettingsModal() {
   }
 
   const handleSave = () => {
-    api.updateSettings({username, password: password || undefined});
+    api.updateSettings({username, password: password});
     toast.success("Preferences Saved", {
       description: "Your settings have been updated successfully."
     });

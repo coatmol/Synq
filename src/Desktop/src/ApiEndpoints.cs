@@ -322,7 +322,11 @@ public static class ApiEndpoints
                                                 context.Connection.LocalIpAddress?.ToString());
 
             if (isLocal)
-                return Results.Ok(state.Settings);
+                return Results.Ok(new {
+                    username = state.Settings.Username,
+                    password = state.Settings.Password,
+                    recentFolders = state.Settings.RecentFolders
+                });
 
             return Results.Ok(new
             {
