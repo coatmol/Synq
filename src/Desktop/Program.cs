@@ -286,7 +286,7 @@ internal class Program
         // Launch Photino Native Desktop Window
         var isDevelopment = args.Contains("--dev");
         var os = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "windows" :
-                 RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "mac" : "linux";
+            RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "mac" : "linux";
 
         var startUrl = isDevelopment
             ? $"http://127.0.0.1:5173?backend={localServerUrl}&os={os}"
@@ -294,9 +294,8 @@ internal class Program
 
 
         var window = new PhotinoWindow()
-            .SetTitle("Synq - Local-First Markdown Editor ")
+            .SetTitle("Synq")
             .SetSize(1280, 800)
-            .Center()
             .SetUseOsDefaultLocation(false)
             .SetUseOsDefaultSize(false)
             .SetContextMenuEnabled(false)
@@ -304,7 +303,8 @@ internal class Program
             .SetSmoothScrollingEnabled(true)
             .SetFileSystemAccessEnabled(true);
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) window.SetChromeless(true);
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) window.Center();
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) window.SetChromeless(true);
 
         window.Load(startUrl);
 
