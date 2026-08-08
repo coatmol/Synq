@@ -1,7 +1,7 @@
-import { useEffect, useCallback } from "react";
+import {useEffect, useCallback} from "react";
 import * as signalR from "@microsoft/signalr";
-import { create } from "zustand";
-import { BASE_URL, api } from "../api";
+import {create} from "zustand";
+import {BASE_URL, api} from "../api";
 
 interface DocumentState {
   activeFile: string | null;
@@ -28,30 +28,38 @@ const documentCache = new Map<string, string>();
 
 export const useDocumentStore = create<DocumentState>((set) => ({
   activeFile: null,
+  activeFileType: null,
   setActiveFile: (file) => set((state) => {
     // Atomically set both activeFile and text from cache in one update,
     // so the editor remounts with the correct content immediately.
     const cached = file ? documentCache.get(file) : undefined;
-    const textUpdate = cached !== undefined ? { text: cached } : {};
+    const textUpdate = cached !== undefined ? {text: cached} : {};
     if (file && !state.openFiles.includes(file)) {
-      return { activeFile: file, openFiles: [...state.openFiles, file], ...textUpdate };
+      return {
+        activeFile: file,
+        activeFileType: file.endsWith('.excalidraw') ? 'excalidraw' : 'markdown',
+        openFiles: [...state.openFiles, file], ...textUpdate
+      };
     }
-    return { activeFile: file, ...textUpdate };
+    return {
+      activeFile: file,
+      activeFileType: file && file.endsWith('.excalidraw') ? 'excalidraw' : 'markdown', ...textUpdate
+    };
   }),
   openFiles: [],
-  setOpenFiles: (updater) => set((state) => ({ openFiles: typeof updater === 'function' ? updater(state.openFiles) : updater })),
+  setOpenFiles: (updater) => set((state) => ({openFiles: typeof updater === 'function' ? updater(state.openFiles) : updater})),
   deletedOpenFiles: [],
-  setDeletedOpenFiles: (updater) => set((state) => ({ deletedOpenFiles: typeof updater === 'function' ? updater(state.deletedOpenFiles) : updater })),
+  setDeletedOpenFiles: (updater) => set((state) => ({deletedOpenFiles: typeof updater === 'function' ? updater(state.deletedOpenFiles) : updater})),
   text: "",
-  setText: (text) => set({ text }),
+  setText: (text) => set({text}),
   isConnected: false,
-  setIsConnected: (status) => set({ isConnected: status }),
+  setIsConnected: (status) => set({isConnected: status}),
   isLoading: false,
-  setIsLoading: (status) => set({ isLoading: status }),
-  documentStats: { words: 0, chars: 0, line: 1, col: 1 },
-  setDocumentStats: (stats) => set({ documentStats: stats }),
+  setIsLoading: (status) => set({isLoading: status}),
+  documentStats: {words: 0, chars: 0, line: 1, col: 1},
+  setDocumentStats: (stats) => set({documentStats: stats}),
   wanPeers: [],
-  setWanPeers: (peers) => set({ wanPeers: peers }),
+  setWanPeers: (peers) => set({wanPeers: peers}),
 }));
 
 // ─── Singleton SignalR connection ────────────────────────────────────
@@ -82,45 +90,45 @@ function getOrCreateConnection(): signalR.HubConnection {
   });
 
   newConnection.on("ItemRenamed", (oldPath: string, newPath: string) => {
-    const { activeFile, openFiles, deletedOpenFiles } = useDocumentStore.getState();
+    const {activeFile, openFiles, deletedOpenFiles} = useDocumentStore.getState();
     const updatePath = (p: string) => {
       if (p === oldPath) return newPath;
       if (p.startsWith(oldPath + '/')) return newPath + p.substring(oldPath.length);
       return p;
     };
     const newOpen = openFiles.map(updatePath);
-    useDocumentStore.setState({ 
+    useDocumentStore.setState({
       openFiles: newOpen,
       deletedOpenFiles: deletedOpenFiles.map(updatePath)
     });
     if (activeFile) {
       const updatedActive = updatePath(activeFile);
-      if (updatedActive !== activeFile) useDocumentStore.setState({ activeFile: updatedActive });
+      if (updatedActive !== activeFile) useDocumentStore.setState({activeFile: updatedActive});
     }
     window.dispatchEvent(new CustomEvent("refreshFileTree"));
   });
 
   newConnection.on("ItemMoved", (oldPath: string, newPath: string) => {
-    const { activeFile, openFiles, deletedOpenFiles } = useDocumentStore.getState();
+    const {activeFile, openFiles, deletedOpenFiles} = useDocumentStore.getState();
     const updatePath = (p: string) => {
       if (p === oldPath) return newPath;
       if (p.startsWith(oldPath + '/')) return newPath + p.substring(oldPath.length);
       return p;
     };
     const newOpen = openFiles.map(updatePath);
-    useDocumentStore.setState({ 
+    useDocumentStore.setState({
       openFiles: newOpen,
       deletedOpenFiles: deletedOpenFiles.map(updatePath)
     });
     if (activeFile) {
       const updatedActive = updatePath(activeFile);
-      if (updatedActive !== activeFile) useDocumentStore.setState({ activeFile: updatedActive });
+      if (updatedActive !== activeFile) useDocumentStore.setState({activeFile: updatedActive});
     }
     window.dispatchEvent(new CustomEvent("refreshFileTree"));
   });
 
   newConnection.on("ItemDeleted", (path: string) => {
-    const { openFiles, deletedOpenFiles } = useDocumentStore.getState();
+    const {openFiles, deletedOpenFiles} = useDocumentStore.getState();
     const isFileAffected = (p: string) => p === path || p.startsWith(path + '/');
     const affectedFiles = openFiles.filter(isFileAffected);
     if (affectedFiles.length > 0) {
@@ -136,7 +144,7 @@ function getOrCreateConnection(): signalR.HubConnection {
   });
 
   newConnection.on("FileCreated", (path: string) => {
-    const { deletedOpenFiles } = useDocumentStore.getState();
+    const {deletedOpenFiles} = useDocumentStore.getState();
     if (deletedOpenFiles.includes(path)) {
       useDocumentStore.setState({
         deletedOpenFiles: deletedOpenFiles.filter(p => p !== path)
@@ -176,9 +184,9 @@ async function startConnection() {
 }
 
 async function fetchDocumentImpl() {
-  const { activeFile, setIsLoading, setText } = useDocumentStore.getState();
+  const {activeFile, setIsLoading, setText} = useDocumentStore.getState();
   if (!activeFile) return;
-  
+
   // If we have a cached version, use it instantly (no spinner)
   const cached = documentCache.get(activeFile);
   if (cached !== undefined) {
@@ -236,5 +244,5 @@ export function useDocumentHub() {
     }
   }, []);
 
-  return { insertText, deleteText, fetchDocument: fetchDocumentImpl };
+  return {insertText, deleteText, fetchDocument: fetchDocumentImpl};
 }

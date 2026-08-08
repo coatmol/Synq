@@ -52,6 +52,7 @@ public class DocumentManager
     public void LoadAllFromDisk()
     {
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return;
+
         var files = Directory.GetFiles(_state.CurrentFolder, "*.md").Select(Path.GetFileName);
         foreach (var file in files) GetOrCreateDocument(file!);
     }
@@ -59,8 +60,10 @@ public class DocumentManager
     public Dictionary<string, string> GetAllFilesContent()
     {
         var result = new Dictionary<string, string>();
+
         foreach (var doc in _documents)
             result[doc.Key] = doc.Value.ToString();
+
         return result;
     }
 

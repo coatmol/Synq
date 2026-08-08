@@ -1,9 +1,9 @@
-import { useRef, useEffect, useCallback, useState } from "react";
-import { useDocumentHub, useDocumentStore } from "./useDocumentHub";
+import {useRef, useEffect, useCallback, useState} from "react";
+import {useDocumentHub, useDocumentStore} from "./useDocumentHub";
 
 export function useBufferedInput() {
-  const { text: remoteText } = useDocumentStore();
-  const { insertText, deleteText } = useDocumentHub();
+  const {text: remoteText} = useDocumentStore();
+  const {insertText, deleteText} = useDocumentHub();
 
   const [localText, setLocalText] = useState(() => remoteText.replace(/\r\n/g, '\n'));
   const [remoteUpdateText, setRemoteUpdateText] = useState<{ text: string, version: number } | null>(null);
@@ -22,7 +22,7 @@ export function useBufferedInput() {
       lastProcessedRemoteText.current = remoteText;
       const newText = remoteText.replace(/\r\n/g, '\n');
       setLocalText(newText);
-      setRemoteUpdateText({ text: newText, version: Date.now() });
+      setRemoteUpdateText({text: newText, version: Date.now()});
     }
   }, [remoteText, syncTrigger]);
 
@@ -38,7 +38,7 @@ export function useBufferedInput() {
           } else if (last && last.type === 'delete' && op.type === 'delete' && typeof last.length === 'number' && typeof op.length === 'number' && last.index === op.index) {
             last.length += op.length;
           } else {
-            optimizedQueue.push({ ...op });
+            optimizedQueue.push({...op});
           }
         }
         pendingOpsQueue.current = optimizedQueue;
@@ -48,13 +48,13 @@ export function useBufferedInput() {
         try {
           // If inserting a massive chunk (e.g. paste), chunk it to avoid SignalR limits
           if (op.type === 'insert' && op.text && op.text.length > 5000) {
-             const chunk = op.text.substring(0, 5000);
-             const remainder = op.text.substring(5000);
-             await insertText(op.index, chunk);
-             // Instead of popping, mutate the operation to have the remainder and shift index
-             op.text = remainder;
-             op.index += 5000;
-             continue; // Loop will pick up the remainder next
+            const chunk = op.text.substring(0, 5000);
+            const remainder = op.text.substring(5000);
+            await insertText(op.index, chunk);
+            // Instead of popping, mutate the operation to have the remainder and shift index
+            op.text = remainder;
+            op.index += 5000;
+            continue; // Loop will pick up the remainder next
           }
 
           if (op.type === 'insert') {
@@ -66,7 +66,7 @@ export function useBufferedInput() {
           console.error("Failed to sync operation with backend:", err);
           break; // Stop flushing and wait for reconnect or next flush
         }
-        
+
         // Only remove the operation AFTER it has been successfully processed
         pendingOpsQueue.current.shift();
       }
@@ -85,12 +85,12 @@ export function useBufferedInput() {
   }, [flushQueue]);
 
   const queueInsert = useCallback((index: number, text: string) => {
-    pendingOpsQueue.current.push({ type: 'insert', index, text });
+    pendingOpsQueue.current.push({type: 'insert', index, text});
     scheduleFlush();
   }, [scheduleFlush]);
 
   const queueDelete = useCallback((index: number, length: number) => {
-    pendingOpsQueue.current.push({ type: 'delete', index, length });
+    pendingOpsQueue.current.push({type: 'delete', index, length});
     scheduleFlush();
   }, [scheduleFlush]);
 

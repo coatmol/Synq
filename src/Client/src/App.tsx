@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
-import { AppLayout } from "./components/AppLayout";
-import { EditorWorkspace } from "./components/EditorWorkspace";
-import { WelcomeScreen } from "./components/WelcomeScreen";
+import {useState, useEffect} from "react";
+import {AppLayout} from "./components/AppLayout";
+import {EditorWorkspace} from "./components/EditorWorkspace";
+import {WelcomeScreen} from "./components/WelcomeScreen";
 
 function App() {
   const [view, setView] = useState<"welcome" | "editor">("welcome");
@@ -19,12 +19,12 @@ function App() {
   }, []);
 
   if (view === "welcome") {
-    return <WelcomeScreen onOpenEditor={() => setView("editor")} />;
+    return <WelcomeScreen onOpenEditor={() => setView("editor")}/>;
   }
 
   return (
     <AppLayout>
-      <EditorWorkspace />
+      <EditorWorkspace/>
     </AppLayout>
   );
 }
