@@ -289,8 +289,8 @@ export const api = {
     }
     return [];
   },
-  
-  checkForUpdates: async (): Promise<{updateAvailable: boolean, latest: string} | null> => {
+
+  checkForUpdates: async (): Promise<{ updateAvailable: boolean, latest?: string, message?: string } | null> => {
     try {
       const response = await fetch(`${BASE_URL}/api/update`);
       if (response.ok) {
@@ -301,10 +301,10 @@ export const api = {
     }
     return null;
   },
-  
+
   updateToLatest: async (): Promise<void> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/update`, { method: 'PATCH' });
+      const response = await fetch(`${BASE_URL}/api/update`, {method: 'PATCH'});
       if (response.ok) {
         const data = await response.json();
         return data.updateToLatest;

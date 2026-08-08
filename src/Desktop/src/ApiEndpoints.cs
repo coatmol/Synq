@@ -346,8 +346,12 @@ public static class ApiEndpoints
 
         app.MapGet("/api/version", () =>
         {
-            var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "1.0.0";
-            return Results.Ok(new { version });
+            var version = Assembly.GetEntryAssembly()?
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion 
+                ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "1.0.0";
+            
+            var cleanVersion = version.Split('+')[0];
+            return Results.Ok(new { version = cleanVersion });
         });
 
         // STUN Diagnostic Status
