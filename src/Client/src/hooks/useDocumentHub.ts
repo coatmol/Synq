@@ -183,7 +183,7 @@ async function startConnection() {
   }
 }
 
-async function fetchDocumentImpl() {
+export async function fetchDocumentImpl() {
   const {activeFile, setIsLoading, setText} = useDocumentStore.getState();
   if (!activeFile) return;
 
@@ -247,6 +247,10 @@ export function useDocumentHub() {
   const updateFile = useCallback(async (content: string) => {
     const activeFile = useDocumentStore.getState().activeFile;
     if (!activeFile) return;
+
+    documentCache.set(activeFile, content);
+    useDocumentStore.getState().setText(content);
+
     const conn = singletonConnection;
     if (conn?.state === signalR.HubConnectionState.Connected) {
       await conn.invoke("UpdateFile", activeFile, content);

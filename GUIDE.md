@@ -61,6 +61,23 @@ Synq features a robust Markdown editor with rich text support. Here is a quick r
 ![Image Alt Text](https://example.com/image.jpg)
 ```
 
+### Wiki Links
+Synq supports wiki links for quickly navigating between files:
+```markdown
+[[filename]]
+[[filename.md]]
+[[folder/filename]]
+```
+Clicking on these links will automatically open the corresponding file in your workspace. If no extension is provided, `.md` is automatically appended.
+
+### Excalidraw Whiteboards
+Synq supports natively embedding Excalidraw whiteboards directly into your markdown documents.
+To create a whiteboard, create a file ending in `.excalidraw` (using the new sketch button). To embed it in your markdown document, simply link to it:
+```markdown
+[[diagram.excalidraw]]
+```
+The diagram will render as a live, inline SVG within your markdown file. You can double-click the diagram to open it for editing, or place your text cursor over the link to reveal the original text.
+
 ### Tables
 ```markdown
 | Header 1 | Header 2 | Header 3 |

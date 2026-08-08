@@ -99,7 +99,11 @@ export function FileTree() {
         }
         current = current.children[part];
       }
-      current.children[fileName] = {name: fileName, path: f, type: NodeType.File, children: {}};
+      if (fileName.endsWith(".excalidraw")) {
+        current.children[fileName] = {name: fileName, path: f, type: NodeType.Excalidraw, children: {}};
+      } else {
+        current.children[fileName] = {name: fileName, path: f, type: NodeType.File, children: {}};
+      }
     });
 
     return root;

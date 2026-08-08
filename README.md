@@ -19,7 +19,8 @@ Instead of relying on a centralized database or cloud backend to resolve concurr
 ## Key Features
 
 * **Absolute Privacy & Data Sovereignty:** Your data is completely air-gapped from the cloud. No analytics, no telemetry, no mandatory sign-ups, and no middleman servers.
-* **Advanced Markdown Editor:** A frictionless, focused writing environment with robust support for markdown, bi-directional linking, and networked thought organization.
+* **Advanced Markdown Editor:** A frictionless, focused writing environment with robust support for markdown, Obsidian-style bi-directional linking, LaTeX math, and networked thought organization.
+* **Visual Whiteboarding:** Native integration with Excalidraw allows you to create diagrams, sync them locally, and seamlessly embed them as live, interactive SVGs directly into your markdown notes.
 * **Hierarchical File Management:** Full support for deeply nested folders, drag-and-drop organization, and a multi-tabbed interface for editing multiple documents concurrently.
 * **Native Context Operations:** Right-click context menus for renaming, deleting, and natively opening files directly within the OS explorer.
 * **Zero-Server Architecture:** No central database, backend API, or cloud service required. The client *is* the server.

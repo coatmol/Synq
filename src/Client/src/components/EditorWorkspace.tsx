@@ -13,7 +13,14 @@ import {Annotation} from "@codemirror/state";
 
 export const remoteUpdateAnnotation = Annotation.define<boolean>();
 
-import {customLinkClickPlugin, codeBlockPlugin, customHighlight, latexPlugin, verticalNavFix} from "./EditorExtensions";
+import {
+  customLinkClickPlugin,
+  codeBlockPlugin,
+  customHighlight,
+  latexPlugin,
+  verticalNavFix,
+  obsidianLinkPlugin
+} from "./EditorExtensions";
 import {Excalidraw} from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 
@@ -41,25 +48,25 @@ export function EditorWorkspace() {
   }, [activeFile, isLoading, remoteText, loadedFile]);
 
   const excalidrawInitialData = useMemo(() => {
-    if (!initialMarkdown) return { elements: [] };
+    if (!initialMarkdown) return {elements: []};
     try {
       const parsed = JSON.parse(initialMarkdown);
       const elements = Array.isArray(parsed) ? parsed : parsed.elements || [];
       lastExcalidrawJson.current = JSON.stringify(elements, null, 2);
-      return { elements };
-    } catch(e) {
-      return { elements: [] };
+      return {elements};
+    } catch (e) {
+      return {elements: []};
     }
   }, [initialMarkdown]);
 
   useEffect(() => {
     if (!excalidrawAPI || !remoteUpdateText || activeFileType !== 'excalidraw') return;
-    
+
     if (remoteUpdateText.text !== lastExcalidrawJson.current) {
       try {
         const parsed = JSON.parse(remoteUpdateText.text);
         const elements = Array.isArray(parsed) ? parsed : parsed.elements || [];
-        excalidrawAPI.updateScene({ elements });
+        excalidrawAPI.updateScene({elements});
         // Fetch back the elements directly from Excalidraw after it normalizes them, 
         // to prevent the subsequent onChange from detecting a false difference.
         const newElements = excalidrawAPI.getSceneElements();
@@ -189,7 +196,7 @@ export function EditorWorkspace() {
     });
   }, []);
 
-  const editorExtensions = useMemo(() => [captureViewExtension, customHighlight, editorTheme, codeBlockPlugin, customLinkClickPlugin, latexPlugin, verticalNavFix], [captureViewExtension, customHighlight, editorTheme, codeBlockPlugin, customLinkClickPlugin, latexPlugin, verticalNavFix]);
+  const editorExtensions = useMemo(() => [captureViewExtension, customHighlight, editorTheme, codeBlockPlugin, customLinkClickPlugin, latexPlugin, verticalNavFix, obsidianLinkPlugin], [captureViewExtension, customHighlight, editorTheme, codeBlockPlugin, customLinkClickPlugin, latexPlugin, verticalNavFix, obsidianLinkPlugin]);
   const handleLinkClick = useCallback((url: string) => window.open(url, "_blank"), []);
 
   return (
