@@ -85,8 +85,6 @@ public class WorkspaceState
         }
     }
 
-    public event Action? FolderChanged;
-
     public string CurrentFolder
     {
         get => _currentFolder;
@@ -104,6 +102,8 @@ public class WorkspaceState
     public bool IsHeadless { get; set; } = false;
 
     public AppSettings Settings { get; private set; } = new();
+
+    public event Action? FolderChanged;
 
     private void LoadSettings()
     {
