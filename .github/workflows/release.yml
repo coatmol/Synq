@@ -61,23 +61,18 @@ jobs:
       - name: Archive Build (Windows)
         if: runner.os == 'Windows'
         run: |
-          Compress-Archive -Path publish\* -DestinationPath Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
           Compress-Archive -Path publish-server\* -DestinationPath Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }}
 
       - name: Archive Build (macOS)
         if: runner.os == 'macOS'
         run: |
-          cd publish
-          zip -r ../Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }} ./*
-          cd ../publish-server
+          cd publish-server
           zip -r ../Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }} ./*
 
       - name: Archive Build (Linux)
         if: runner.os == 'Linux'
         run: |
-          cd publish
-          tar -czvf ../Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }} ./*
-          cd ../publish-server
+          cd publish-server
           tar -czvf ../Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }} ./*
 
       - name: Package with Velopack
@@ -99,7 +94,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
             Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }}
             releases/*
           generate_release_notes: true
