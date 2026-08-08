@@ -116,7 +116,7 @@ public class PeerSyncHandler
                 }
 
                 break;
-                
+
             case "FileUpdated":
                 if (args.Length >= 2)
                 {
@@ -129,7 +129,7 @@ public class PeerSyncHandler
                         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                             Directory.CreateDirectory(dir);
                         await File.WriteAllTextAsync(fp, content);
-                        
+
                         var doc = _manager.GetOrCreateDocument(filename2);
                         doc.OverwriteFromContent(content);
                     }
@@ -137,6 +137,7 @@ public class PeerSyncHandler
                     _syncManager.InitializeLocalFolder();
                     await _hubContext.Clients.All.SendAsync("DocumentUpdated", filename2, content);
                 }
+
                 break;
         }
     }

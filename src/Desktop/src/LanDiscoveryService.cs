@@ -255,7 +255,10 @@ public class LanDiscoveryService : IDisposable
                     async (filename, content) =>
                     {
                         await _syncHandler.HandleFileEvent("FileUpdated",
-                            new[] { JsonSerializer.SerializeToElement(filename), JsonSerializer.SerializeToElement(content) });
+                            new[]
+                            {
+                                JsonSerializer.SerializeToElement(filename), JsonSerializer.SerializeToElement(content)
+                            });
                     });
 
                 await PeerConnection.StartAsync();

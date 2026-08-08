@@ -30,10 +30,10 @@ public class SyncManifest
 public class SyncManager
 {
     private readonly DocumentManager _documentManager;
+    private readonly IHubContext<DocumentHub> _hubContext;
     private readonly WorkspaceState _state;
-    private readonly Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> _hubContext;
 
-    public SyncManager(WorkspaceState state, DocumentManager documentManager, Microsoft.AspNetCore.SignalR.IHubContext<DocumentHub> hubContext)
+    public SyncManager(WorkspaceState state, DocumentManager documentManager, IHubContext<DocumentHub> hubContext)
     {
         _state = state;
         _documentManager = documentManager;
@@ -292,7 +292,7 @@ public class SyncManager
         var content =
             await http.GetStringAsync($"{peerBaseUrl}/api/rawfile?filename={Uri.EscapeDataString(relativePath)}");
         File.WriteAllText(path, content);
-        var doc = _documentManager.GetOrCreateDocument(relativePath); 
+        var doc = _documentManager.GetOrCreateDocument(relativePath);
         doc.OverwriteFromContent(content); // Update memory correctly!
         await _hubContext.Clients.All.SendAsync("DocumentUpdated", relativePath, content);
     }

@@ -56,11 +56,34 @@ internal class Program
     [DllImport("dwmapi.dll")]
     private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS pMarInset);
 
+    [DllImport("shell32.dll", CharSet = CharSet.Auto)]
+    private static extern uint ExtractIconEx(string lpszFile, int nIconIndex, IntPtr[] phiconLarge,
+        IntPtr[] phiconSmall, uint nIcons);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    private static extern IntPtr LoadImage(IntPtr hinst, string lpszName, uint uType, int cxDesired, int cyDesired,
+        uint fuLoad);
+
+    [DllImport("shell32.dll", SetLastError = true)]
+    private static extern void SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
+
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
     private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, WndProcDelegate newProc);
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
     private static extern IntPtr SetWindowLong32(IntPtr hWnd, int nIndex, WndProcDelegate newProc);
+
+    [DllImport("user32.dll", EntryPoint = "SetClassLongPtr")]
+    private static extern IntPtr SetClassLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+    [DllImport("user32.dll", EntryPoint = "SetClassLong")]
+    private static extern IntPtr SetClassLong32(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+    private static IntPtr SetClassLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
+    {
+        if (IntPtr.Size == 8) return SetClassLongPtr64(hWnd, nIndex, dwNewLong);
+        return SetClassLong32(hWnd, nIndex, dwNewLong);
+    }
 
     private static IntPtr SetWndProc(IntPtr hWnd, WndProcDelegate newProc)
     {
@@ -83,6 +106,9 @@ internal class Program
 
     [DllImport("user32.dll")]
     private static extern int SendMessage(IntPtr hWnd, uint Msg, int wParam, int lParam);
+
+    [DllImport("user32.dll", EntryPoint = "SendMessage")]
+    private static extern IntPtr SendMessagePtr(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
     private static IntPtr CustomWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
@@ -174,6 +200,15 @@ internal class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            try
+            {
+                SetCurrentProcessExplicitAppUserModelID("Synq.Desktop.App");
+            }
+            catch
+            {
+            }
+
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
             Args = args,
@@ -256,8 +291,7 @@ internal class Program
 
 
         var window = new PhotinoWindow()
-            .SetTitle("Synq - Local-First Markdown Editor")
-            .SetIconFile(Path.Combine(AppContext.BaseDirectory, "Synq3.ico"))
+            .SetTitle("Synq - Local-First Markdown Editor ")
             .SetSize(1280, 800)
             .Center()
             .SetUseOsDefaultLocation(false)
@@ -443,6 +477,24 @@ internal class Program
 
                 // Force frame recalculation so NCCALCSIZE is triggered
                 SetWindowPos(hWnd, IntPtr.Zero, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
+
+                // Force set the taskbar icon directly via Win32 from the EXE resources
+                var exePath = Path.Combine(AppContext.BaseDirectory, "Synq.exe");
+                var largeIcons = new IntPtr[1];
+                var smallIcons = new IntPtr[1];
+                ExtractIconEx(exePath, 0, largeIcons, smallIcons, 1);
+
+                if (largeIcons[0] != IntPtr.Zero)
+                {
+                    SendMessagePtr(hWnd, 0x0080 /*WM_SETICON*/, 1 /*ICON_BIG*/, largeIcons[0]);
+                    SetClassLongPtr(hWnd, -14 /*GCLP_HICON*/, largeIcons[0]);
+                }
+
+                if (smallIcons[0] != IntPtr.Zero)
+                {
+                    SendMessagePtr(hWnd, 0x0080 /*WM_SETICON*/, 0 /*ICON_SMALL*/, smallIcons[0]);
+                    SetClassLongPtr(hWnd, -34 /*GCLP_HICONSM*/, smallIcons[0]);
+                }
             }
         };
 
