@@ -10,6 +10,8 @@ export function SettingsModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [appVersion, setAppVersion] = useState("1.0.0");
+  const [latestVersion, setLatestVersion] = useState<{updateAvailable: boolean, latest: string} | null>(null);
 
   useEffect(() => {
     api.getSettings().then(settings => {
@@ -19,6 +21,14 @@ export function SettingsModal() {
           setPassword(settings.password);
         }
       }
+      
+      api.getVersion().then(v => {
+        if (v) setAppVersion(v);
+      });
+      
+      api.checkForUpdates().then(updateInfo => {
+        setLatestVersion(updateInfo);
+      });
     });
 
     const handleOpen = () => setIsOpen(true);
@@ -33,6 +43,25 @@ export function SettingsModal() {
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPassword(e.target.value);
   };
+  
+  const handleCheckForUpdates = () => {
+    if (latestVersion?.updateAvailable)
+    {
+      api.updateToLatest().then(() => {
+        toast.success("Update Started", {
+          description: "The application is updating to the latest version."
+        });
+      }).catch(err => {
+        toast.error("Update Failed", {
+          description: `Failed to update: ${err.message}`
+        });
+      });
+    } else {
+      api.checkForUpdates().then(updateInfo => {
+        setLatestVersion(updateInfo);
+      });
+    }
+  }
 
   const handleSave = () => {
     api.updateSettings({username, password: password || undefined});
@@ -56,6 +85,14 @@ export function SettingsModal() {
                 </Modal.Heading>
               </Modal.Header>
               <Modal.Body className="flex flex-col gap-6 p-6 bg-zinc-900">
+                <TextField>
+                  <Label>Keep Synq up-to-date</Label>
+                  <Button onClick={handleCheckForUpdates}>
+                    {latestVersion?.updateAvailable ? `Update to ${latestVersion.latest}` : "Check for Updates"}
+                  </Button>
+                  <Description>Version {appVersion} {latestVersion?.updateAvailable ? `-> ${latestVersion.latest}` : "(no updates available)"}</Description>
+                </TextField>
+                
                 <TextField>
                   <Label className="text-sm font-medium text-zinc-300 mb-1">Display Name</Label>
                   <Input value={username} onChange={handleUsernameChange}

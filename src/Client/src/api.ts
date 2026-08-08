@@ -288,5 +288,29 @@ export const api = {
       console.error("Failed to fetch WAN peers", e);
     }
     return [];
+  },
+  
+  checkForUpdates: async (): Promise<{updateAvailable: boolean, latest: string} | null> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/update`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (e) {
+      console.error("Failed to fetch update information", e);
+    }
+    return null;
+  },
+  
+  updateToLatest: async (): Promise<void> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/update`, { method: 'PATCH' });
+      if (response.ok) {
+        const data = await response.json();
+        return data.updateToLatest;
+      }
+    } catch (e) {
+      console.error("Failed to update to latest version", e);
+    }
   }
 };

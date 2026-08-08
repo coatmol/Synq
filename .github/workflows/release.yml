@@ -9,6 +9,8 @@ jobs:
   build:
     name: Build for ${{ matrix.rid }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -38,6 +40,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk
 
       - name: Extract Version
         id: extract_version
@@ -75,35 +80,28 @@ jobs:
           cd ../publish-server
           tar -czvf ../Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }} ./*
 
-      - name: Upload Desktop Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
-          path: Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
-
-      - name: Upload Server Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }}
-          path: Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }}
-
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-artifacts
-          merge-multiple: true
+      - name: Package with Velopack
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            MAIN_EXE="Synq.exe"
+          else
+            MAIN_EXE="Synq"
+          fi
+          
+          vpk pack --packId Synq --packVersion ${{ env.VERSION }} --input publish --output releases --mainExe $MAIN_EXE
+          
+          if [ "${{ runner.os }}" == "Windows" ] && [ -f "releases/Setup.exe" ]; then
+            mv releases/Setup.exe releases/Synq-Setup-${{ matrix.rid }}.exe
+          fi
 
       - name: Release to GitHub
         uses: softprops/action-gh-release@v2
         with:
-          files: release-artifacts/*
+          files: |
+            Synq-${{ github.ref_name }}-${{ matrix.archive_suffix }}
+            Synq-Server-${{ github.ref_name }}-${{ matrix.archive_suffix }}
+            releases/*
           generate_release_notes: true
 
   docker:

@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
+using Velopack;
 
 namespace Desktop;
 
@@ -12,6 +13,9 @@ public static class ApiEndpoints
 {
     public static void MapAll(WebApplication app)
     {
+        VelopackApp.Build().Run();
+        var updateManager = new UpdateManager(new Velopack.Sources.GithubSource("https://github.com/coatmol/Synq", null, false));
+        
         app.Use(async (context, next) =>
         {
             var state = context.RequestServices.GetRequiredService<WorkspaceState>();
@@ -379,5 +383,41 @@ public static class ApiEndpoints
 
         app.MapGet("/api/wan/peers", (WebRtcPeerManager wrtc) =>
             Results.Ok(wrtc.GetConnectedWanPeers()));
+        
+        app.MapGet("/api/update", async (HttpRequest req, WebRtcPeerManager wrtc) =>
+        {
+            if (!updateManager.IsInstalled)
+                return Results.Ok(new { updateAvailable = false, message = "Updates are disabled in local/uninstalled mode." });
+
+            var updateInfo = await updateManager.CheckForUpdatesAsync();
+            if (updateInfo is not null)
+                return Results.Ok(!updateInfo.IsDowngrade
+                    ? new { updateAvailable = true, latest = updateInfo.TargetFullRelease.Version.ToString(), message = "An update is available." }
+                    : new { updateAvailable = false, message = "No updates available." });
+            
+            return Results.Ok(new { updateAvailable = false, message = "Failed to check for updates." });
+        });
+
+        app.MapPatch("/api/update", async (HttpRequest req, WebRtcPeerManager wrtc) =>
+        {
+            if (!updateManager.IsInstalled)
+                return Results.BadRequest(new { message = "Cannot apply updates when running locally (not installed)." });
+
+            var updateInfo = await updateManager.CheckForUpdatesAsync();
+            if (updateInfo is not null && !updateInfo.IsDowngrade)
+            {
+                try
+                {
+                    await updateManager.DownloadUpdatesAsync(updateInfo);
+                    updateManager.ApplyUpdatesAndRestart(updateInfo);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    return Results.BadRequest(new { message = "Failed to apply update: " + e.Message });
+                }
+            }
+            return Results.BadRequest(new { message = "No updates available." });
+        });
     }
 }
