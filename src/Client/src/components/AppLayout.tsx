@@ -122,21 +122,24 @@ export function AppLayout({children}: AppLayoutProps) {
         {/* Activity Bar (Far Left) */}
         {!isMobile && (
           <div
-            className="w-14 shrink-0 h-full flex flex-col items-center py-2 bg-[#18181b] border-r border-[#202020] z-20"
+            className="w-11 shrink-0 h-full flex flex-col items-center py-2 bg-[#18181b] border-r border-[#202020] z-20"
             style={isNativeFrame ? {} : {WebkitAppRegion: 'drag'} as any}>
             <div style={isNativeFrame ? {} : {WebkitAppRegion: 'no-drag'} as any}
-                 className="flex flex-col gap-3 mt-2 w-full px-2">
+                 className="flex flex-col gap-2 mt-2 w-full">
+              <div className="flex items-center justify-center w-full mb-2">
+                <img src="/Synq3.png" alt="Logo" className="w-6 h-6"/>
+              </div>
               <button
                 onClick={() => setSidebarTab('files')}
                 title="Files"
-                className={`p-2.5 rounded-xl transition-all flex items-center justify-center w-full ${sidebarTab === 'files' ? 'text-zinc-100 bg-[#27272a] shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-[#202020]'}`}
+                className={`w-9 h-9 mx-auto rounded-xl transition-all flex items-center justify-center ${sidebarTab === 'files' ? 'text-zinc-100 bg-[#27272a] shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-[#202020]'}`}
               >
                 <FolderTree className="w-5 h-5" strokeWidth={1.5}/>
               </button>
               <button
                 onClick={() => setSidebarTab('history')}
                 title="Version History"
-                className={`p-2.5 rounded-xl transition-all flex items-center justify-center w-full ${sidebarTab === 'history' ? 'text-zinc-100 bg-[#27272a] shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-[#202020]'}`}
+                className={`w-9 h-9 mx-auto rounded-xl transition-all flex items-center justify-center ${sidebarTab === 'history' ? 'text-zinc-100 bg-[#27272a] shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-[#202020]'}`}
               >
                 <History className="w-5 h-5" strokeWidth={1.5}/>
               </button>
