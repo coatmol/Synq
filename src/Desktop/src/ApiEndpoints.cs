@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text.Json;
+using Engine;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using Velopack;
@@ -517,6 +518,75 @@ public static class ApiEndpoints
                 Console.WriteLine(e);
                 return Results.BadRequest(new { message = "Failed to commit changes: " + e.Message });
             }
+        });
+
+        app.MapGet("/api/commits", async (string? fileName, WorkspaceState state) =>
+        {
+            if (string.IsNullOrEmpty(state.CurrentFolder))
+                return Results.Ok(new { commits = new List<CommitRecord>() });
+            var dotSynq = Path.Combine(state.CurrentFolder, ".synq");
+            var indexFile = Path.Combine(dotSynq, "file_index.json");
+            if (!File.Exists(indexFile)) return Results.Ok(new { commits = new List<CommitRecord>() });
+
+            var index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile));
+            if (index == null) return Results.Ok(new { commits = new List<CommitRecord>() });
+
+            var allCommits = new List<object>();
+
+            if (!string.IsNullOrEmpty(fileName))
+            {
+                if (index.TryGetValue(fileName, out var uuid))
+                {
+                    var commitsFile = Path.Combine(dotSynq, "history", uuid, "commits.json");
+                    if (File.Exists(commitsFile))
+                    {
+                        var history =
+                            JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile));
+                        if (history != null)
+                            foreach (var c in history.Commits)
+                                allCommits.Add(new { c.CommitId, c.ParentId, c.Timestamp, c.AuthorName, fileName });
+                    }
+                }
+            }
+            else
+            {
+                foreach (var kvp in index)
+                {
+                    var fName = kvp.Key;
+                    var uuid = kvp.Value;
+                    var commitsFile = Path.Combine(dotSynq, "history", uuid, "commits.json");
+                    if (File.Exists(commitsFile))
+                    {
+                        var history =
+                            JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile));
+                        if (history != null)
+                            foreach (var c in history.Commits)
+                                allCommits.Add(new
+                                    { c.CommitId, c.ParentId, c.Timestamp, c.AuthorName, fileName = fName });
+                    }
+                }
+            }
+
+            var sorted = allCommits.OrderByDescending(c => ((dynamic)c).Timestamp).ToList();
+            return Results.Ok(new { commits = sorted });
+        });
+
+        app.MapGet("/api/commit/content", async (string fileName, string commitId, WorkspaceState state) =>
+        {
+            if (string.IsNullOrEmpty(state.CurrentFolder)) return Results.NotFound();
+            var dotSynq = Path.Combine(state.CurrentFolder, ".synq");
+            var indexFile = Path.Combine(dotSynq, "file_index.json");
+            if (!File.Exists(indexFile)) return Results.NotFound();
+
+            var index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile));
+            if (index == null || !index.TryGetValue(fileName, out var uuid)) return Results.NotFound();
+
+            var objectFile = Path.Combine(dotSynq, "history", uuid, "objects", $"{commitId}.bin");
+            if (!File.Exists(objectFile)) return Results.NotFound();
+
+            var bytes = await File.ReadAllBytesAsync(objectFile);
+            var content = MarkdownCompressor.Decompress(bytes);
+            return Results.Ok(new { content });
         });
     }
 }

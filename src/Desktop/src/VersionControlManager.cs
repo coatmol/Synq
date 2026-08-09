@@ -7,13 +7,11 @@ namespace Desktop;
 
 public class VersionControlManager
 {
-    private readonly LanDiscoveryService _discovery;
     private readonly WorkspaceState _state;
 
-    public VersionControlManager(WorkspaceState state, LanDiscoveryService discovery)
+    public VersionControlManager(WorkspaceState state)
     {
         _state = state;
-        _discovery = discovery;
     }
 
     public async Task<string?> CommitFileAsync(string fileName, string authorName)

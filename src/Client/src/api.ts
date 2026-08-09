@@ -314,17 +314,32 @@ export const api = {
     }
   },
 
-  getCommits: async (): Promise<any[]> => {
+  getCommits: async (fileName?: string): Promise<any[]> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/commits`);
+      const qs = fileName ? `?fileName=${encodeURIComponent(fileName)}` : '';
+      const response = await fetch(`${BASE_URL}/api/commits${qs}`);
       if (response.ok) {
-        return await response.json();
+        const data = await response.json();
+        return data.commits;
       }
     } catch (e) {
       console.error("Failed to fetch commits", e);
     }
 
     return [];
+  },
+
+  getCommitContent: async (fileName: string, commitId: string): Promise<string | null> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/commit/content?fileName=${encodeURIComponent(fileName)}&commitId=${encodeURIComponent(commitId)}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.content;
+      }
+    } catch (e) {
+      console.error("Failed to fetch commit content", e);
+    }
+    return null;
   },
 
   commitFile: async (fileName: string): Promise<void> => {

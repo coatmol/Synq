@@ -10,8 +10,10 @@ import * as React from "react";
 import {api} from "../api";
 import {useDocumentStore, useDocumentHub} from "../hooks/useDocumentHub";
 import {FileTree} from "./FileTree";
+import {VersionHistory} from "./VersionHistory";
+import {DiffViewer} from "./DiffViewer";
 import {DeletedFileBanner} from "./DeletedFileBanner";
-import {X, FileText, Users, Menu} from "lucide-react";
+import {X, FileText, Users, Menu, History, FolderTree} from "lucide-react";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -21,7 +23,8 @@ export function AppLayout({children}: AppLayoutProps) {
   const [peers, setPeers] = useState<any[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  
+  const [sidebarTab, setSidebarTab] = useState<'files' | 'history'>('files');
+
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const os = searchParams.get('os') || 'windows';
   const isNativeFrame = os === 'linux';
@@ -116,11 +119,36 @@ export function AppLayout({children}: AppLayoutProps) {
       )}
 
       <PanelGroup direction="horizontal" className="flex-1 w-full overflow-hidden">
+        {/* Activity Bar (Far Left) */}
+        {!isMobile && (
+          <div
+            className="w-14 shrink-0 h-full flex flex-col items-center py-2 bg-[#18181b] border-r border-[#202020] z-20"
+            style={isNativeFrame ? {} : {WebkitAppRegion: 'drag'} as any}>
+            <div style={isNativeFrame ? {} : {WebkitAppRegion: 'no-drag'} as any}
+                 className="flex flex-col gap-3 mt-2 w-full px-2">
+              <button
+                onClick={() => setSidebarTab('files')}
+                title="Files"
+                className={`p-2.5 rounded-xl transition-all flex items-center justify-center w-full ${sidebarTab === 'files' ? 'text-zinc-100 bg-[#27272a] shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-[#202020]'}`}
+              >
+                <FolderTree className="w-5 h-5" strokeWidth={1.5}/>
+              </button>
+              <button
+                onClick={() => setSidebarTab('history')}
+                title="Version History"
+                className={`p-2.5 rounded-xl transition-all flex items-center justify-center w-full ${sidebarTab === 'history' ? 'text-zinc-100 bg-[#27272a] shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-[#202020]'}`}
+              >
+                <History className="w-5 h-5" strokeWidth={1.5}/>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Sidebar */}
         {!isMobile && (
           <Panel defaultSize={20} className="flex flex-col bg-[#18181b]">
             <div
-              className="flex items-center h-10.5 shrink-0 border-b border-[#202020] pl-2"
+              className="flex items-center h-10.5 shrink-0 border-b border-[#202020] px-2"
               style={isNativeFrame ? {} : {WebkitAppRegion: 'drag'} as any}
               onPointerDown={(e) => {
                 if (!isNativeFrame && e.target === e.currentTarget) {
@@ -134,7 +162,7 @@ export function AppLayout({children}: AppLayoutProps) {
                 <FileMenu/>
               </div>
             </div>
-            <FileTree/>
+            {sidebarTab === 'files' ? <FileTree/> : <VersionHistory/>}
           </Panel>
         )}
 
@@ -178,6 +206,9 @@ export function AppLayout({children}: AppLayoutProps) {
               )}
               {openFiles.length > 0 && openFiles.map(file => {
                 const isActive = activeFile === file;
+                const isDiff = file.startsWith('diff:');
+                const displayName = isDiff ? `Diff: ${file.split(':')[1].split('/').pop()}` : file.split('/').pop();
+
                 return (
                   <div
                     key={file}
@@ -199,7 +230,7 @@ export function AppLayout({children}: AppLayoutProps) {
                       : 'bg-transparent text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40 rounded-t-lg border-t-[3px] border-t-transparent border-x border-x-transparent'}
                     `}
                   >
-                    <span className="truncate max-w-[150px]">{file.split('/').pop()}</span>
+                    <span className="truncate max-w-[150px]">{displayName}</span>
                     <button
                       onClick={(e) => closeFile(e, file)}
                       className={`rounded-full p-0.5 transition-colors shrink-0 
@@ -216,7 +247,11 @@ export function AppLayout({children}: AppLayoutProps) {
               <WindowControls isNativeFrame={isNativeFrame}/>
             </div>
           </div>
-          {activeFile ? (
+          {activeFile?.startsWith('diff:') ? (
+            <div key={activeFile} className="flex-1 overflow-hidden relative flex flex-col">
+              <DiffViewer fileUri={activeFile}/>
+            </div>
+          ) : activeFile ? (
             <div key={activeFile} className="flex-1 overflow-hidden relative flex flex-col">
               {deletedOpenFiles.includes(activeFile) && <DeletedFileBanner/>}
               {children}

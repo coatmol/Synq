@@ -37,13 +37,13 @@ export const useDocumentStore = create<DocumentState>((set) => ({
     if (file && !state.openFiles.includes(file)) {
       return {
         activeFile: file,
-        activeFileType: file.endsWith('.excalidraw') ? 'excalidraw' : 'markdown',
+        activeFileType: file.startsWith('diff:') ? 'diff' : (file.endsWith('.excalidraw') ? 'excalidraw' : 'markdown'),
         openFiles: [...state.openFiles, file], ...textUpdate
       };
     }
     return {
       activeFile: file,
-      activeFileType: file && file.endsWith('.excalidraw') ? 'excalidraw' : 'markdown', ...textUpdate
+      activeFileType: file ? (file.startsWith('diff:') ? 'diff' : (file.endsWith('.excalidraw') ? 'excalidraw' : 'markdown')) : null, ...textUpdate
     };
   }),
   openFiles: [],
@@ -185,7 +185,7 @@ async function startConnection() {
 
 export async function fetchDocumentImpl() {
   const {activeFile, setIsLoading, setText} = useDocumentStore.getState();
-  if (!activeFile) return;
+  if (!activeFile || activeFile.startsWith("diff:")) return;
 
   // If we have a cached version, use it instantly (no spinner)
   const cached = documentCache.get(activeFile);
