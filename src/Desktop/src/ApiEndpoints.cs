@@ -180,6 +180,9 @@ public static class ApiEndpoints
                     else if (filename.EndsWith(".excalidraw"))
                         await File.WriteAllTextAsync(filePath,
                             "{\"type\":\"excalidraw\",\"version\":2,\"source\":\"https://excalidraw.com\",\"elements\":[],\"appState\":{\"gridSize\": 20, \"gridStep\": 5, \"gridModeEnabled\": true, \"viewBackgroundColor\":\"#ffffff\"}}");
+
+                    var vc = req.HttpContext.RequestServices.GetService<VersionControlManager>();
+                    if (vc != null) await vc.CommitFileAsync(filename, state.Settings.Username);
                 }
 
                 sync.InitializeLocalFolder();
@@ -192,15 +195,20 @@ public static class ApiEndpoints
         app.MapDelete("/api/files/{*filename}", async (string filename, WorkspaceState state, SyncManager sync,
             IHubContext<DocumentHub> hubContext, HttpContext httpContext) =>
         {
-            var filePath = PathUtils.GetSafePath(state.CurrentFolder, Uri.UnescapeDataString(filename));
+            var relativeName = Uri.UnescapeDataString(filename);
+            var filePath = PathUtils.GetSafePath(state.CurrentFolder, relativeName);
             if (filePath == null) return Results.BadRequest();
+
+            var vc = httpContext.RequestServices.GetService<VersionControlManager>();
+            if (vc != null) await vc.CommitDeletionAsync(relativeName, state.Settings.Username);
 
             if (File.Exists(filePath)) File.Delete(filePath);
             sync.InitializeLocalFolder();
-            await hubContext.Clients.All.SendAsync("ItemDeleted", Uri.UnescapeDataString(filename));
+            await hubContext.Clients.All.SendAsync("ItemDeleted", relativeName);
+
             var discovery = httpContext.RequestServices.GetService<LanDiscoveryService>();
             if (discovery?.PeerConnection != null)
-                _ = discovery.PeerConnection.SendAsync("ItemDeleted", Uri.UnescapeDataString(filename));
+                _ = discovery.PeerConnection.SendAsync("ItemDeleted", relativeName);
             return Results.Ok();
         });
 
@@ -562,7 +570,10 @@ public static class ApiEndpoints
                         if (history != null)
                             foreach (var c in history.Commits)
                                 allCommits.Add(new
-                                    { c.CommitId, c.ParentId, c.Timestamp, c.AuthorName, fileName = fName });
+                                {
+                                    c.CommitId, c.ParentId, c.Timestamp, c.AuthorName, c.Message, c.IsDeleted,
+                                    fileName = fName
+                                });
                     }
                 }
             }
@@ -597,6 +608,8 @@ public class CommitRecord
     public string? ParentId { get; set; }
     public long Timestamp { get; set; }
     public string AuthorName { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public bool IsDeleted { get; set; }
 }
 
 public class CommitHistory

@@ -1,6 +1,8 @@
 import {useEffect, useState} from 'react';
 import {api} from '../api';
 import {diff_match_patch} from 'diff-match-patch';
+import {Excalidraw} from "@excalidraw/excalidraw";
+import "@excalidraw/excalidraw/index.css";
 
 interface DiffViewerProps {
   fileUri: string; // e.g., diff:fileName:commitId:parentId
@@ -44,6 +46,55 @@ export function DiffViewer({fileUri}: DiffViewerProps) {
 
   if (loading) {
     return <div className="flex-1 flex items-center justify-center text-zinc-500 bg-[#1e1e1e]">Loading diff...</div>;
+  }
+
+  if (fileName.endsWith('.excalidraw')) {
+    let oldElements = [];
+    let newElements = [];
+    try {
+      if (oldContent) {
+        const parsed = JSON.parse(oldContent);
+        oldElements = Array.isArray(parsed) ? parsed : parsed.elements || [];
+      }
+      if (newContent) {
+        const parsed = JSON.parse(newContent);
+        newElements = Array.isArray(parsed) ? parsed : parsed.elements || [];
+      }
+    } catch (e) {
+      console.error("Failed to parse Excalidraw JSON in diff", e);
+    }
+
+    return (
+      <div className="flex-1 flex flex-col bg-[#1e1e1e]">
+        <h2 className="text-xl font-sans font-semibold text-zinc-200 mx-8 mt-8 mb-4 pb-4 border-b border-zinc-800/80 flex items-center gap-3 shrink-0">
+          <span className="text-zinc-500 font-normal">#</span>
+          {fileName}
+        </h2>
+        <div className="flex-1 flex gap-4 px-8 pb-8 min-h-0">
+          <div className="flex-1 flex flex-col border border-red-900/30 rounded-lg overflow-hidden relative bg-[#121212] shadow-sm">
+            <div className="absolute top-4 left-4 z-10 px-3 py-1 bg-red-950/80 text-red-400 font-mono text-xs font-semibold tracking-wider uppercase rounded shadow-lg border border-red-900/50 backdrop-blur-md">
+              Previous
+            </div>
+            {oldContent ? (
+              <Excalidraw initialData={{elements: oldElements}} viewModeEnabled={true} theme="dark" />
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-zinc-600 font-mono text-sm">No previous version</div>
+            )}
+          </div>
+          
+          <div className="flex-1 flex flex-col border border-emerald-900/30 rounded-lg overflow-hidden relative bg-[#121212] shadow-sm">
+            <div className="absolute top-4 left-4 z-10 px-3 py-1 bg-emerald-950/80 text-emerald-400 font-mono text-xs font-semibold tracking-wider uppercase rounded shadow-lg border border-emerald-900/50 backdrop-blur-md">
+              Current
+            </div>
+            {newContent ? (
+              <Excalidraw initialData={{elements: newElements}} viewModeEnabled={true} theme="dark" />
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-zinc-600 font-mono text-sm">File deleted</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const dmp = new diff_match_patch();

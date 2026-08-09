@@ -71,7 +71,60 @@ public class VersionControlManager
             CommitId = commitId,
             ParentId = history.Head,
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            AuthorName = authorName
+            AuthorName = authorName,
+            Message = history.Commits.Count == 0 ? $"Created {fileName}" : $"Edited {fileName}"
+        };
+
+        history.Commits.Add(newCommit);
+        history.Head = commitId;
+
+        await File.WriteAllTextAsync(commitsFile,
+            JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true }));
+
+        return commitId;
+    }
+
+    public async Task<string?> CommitDeletionAsync(string fileName, string authorName)
+    {
+        if (string.IsNullOrEmpty(_state.CurrentFolder)) return null;
+
+        var dotSynq = Path.Combine(_state.CurrentFolder, ".synq");
+        var indexFile = Path.Combine(dotSynq, "file_index.json");
+        if (!Directory.Exists(dotSynq)) return null;
+
+        Dictionary<string, string> index = new();
+        if (File.Exists(indexFile))
+            index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile)) ??
+                    new Dictionary<string, string>();
+
+        if (!index.TryGetValue(fileName, out var uuid)) return null;
+
+        var historyDir = Path.Combine(dotSynq, "history", uuid);
+        var objectsDir = Path.Combine(historyDir, "objects");
+        if (!Directory.Exists(objectsDir)) Directory.CreateDirectory(objectsDir);
+
+        var commitId = "deleted-" + Guid.NewGuid().ToString("N");
+        var objectFile = Path.Combine(objectsDir, $"{commitId}.bin");
+        if (!File.Exists(objectFile))
+        {
+            var compressed = MarkdownCompressor.Compress("");
+            await File.WriteAllBytesAsync(objectFile, compressed);
+        }
+
+        var commitsFile = Path.Combine(historyDir, "commits.json");
+        CommitHistory history = new();
+        if (File.Exists(commitsFile))
+            history = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile)) ??
+                      new CommitHistory();
+
+        var newCommit = new CommitRecord
+        {
+            CommitId = commitId,
+            ParentId = history.Head,
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            AuthorName = authorName,
+            Message = $"Deleted {fileName}",
+            IsDeleted = true
         };
 
         history.Commits.Add(newCommit);

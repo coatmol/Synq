@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react';
 import {api} from '../api';
 import {useDocumentStore} from '../hooks/useDocumentHub';
 import {UserAvatar} from './UserAvatar';
+import {GitGraph, RefreshCw} from 'lucide-react';
 
 export function VersionHistory() {
   const [commits, setCommits] = useState<any[]>([]);
@@ -23,8 +24,20 @@ export function VersionHistory() {
 
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#18181b]">
-      <div className="p-3 text-xs font-semibold text-zinc-500 tracking-wider uppercase mb-1">
-        Version History
+      <div className="p-3 text-xs font-semibold text-zinc-500 tracking-wider uppercase mb-1 flex items-center justify-between">
+        <div className={"border-none min-w-0 h-7 flex items-center text-xs font-bold text-zinc-400 uppercase"}>
+          <span className="flex items-center text-zinc-400">
+            <GitGraph className="w-5 h-5 mr-1.5" />
+            Version History
+          </span>
+        </div>
+        <button 
+          onClick={fetchCommits} 
+          className="text-zinc-500 hover:text-emerald-400 transition-colors p-1 cursor-pointer"
+          title="Refresh History"
+        >
+          <RefreshCw size={14} />
+        </button>
       </div>
       <div className="flex flex-col gap-1 px-2 pb-4">
         {commits.map((commit) => {
@@ -39,7 +52,6 @@ export function VersionHistory() {
           hours = hours ? hours : 12;
           const minutes = date.getMinutes().toString().padStart(2, '0');
           const formattedDate = `${month} ${day}, ${year} ${hours}:${minutes} ${ampm}`;
-          const initials = commit.authorName ? commit.authorName.slice(0, 2).toUpperCase() : 'ME';
 
           return (
             <div
@@ -53,19 +65,22 @@ export function VersionHistory() {
             >
               <div className="flex gap-2.5 items-start">
                 <div className={`shrink-0 mt-0.5 rounded-full ${isSelected ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-[#18181b]' : ''}`}>
-                  <UserAvatar name={initials} size="md" />
+                  <UserAvatar name={commit.authorName || 'ME'} size="md" />
                 </div>
                 <div className="flex flex-col min-w-0 flex-1">
-                  <span className={`text-[11px] truncate ${isSelected ? 'text-zinc-200' : 'text-zinc-400'}`}>
-                    {commit.authorName}
+                  <span className={`text-[12px] font-medium truncate ${isSelected ? 'text-zinc-100' : 'text-zinc-300'}`} title={commit.message || (commit.isDeleted ? `Deleted ${commit.fileName}` : `Edited ${commit.fileName}`)}>
+                    {commit.message || (commit.isDeleted ? `Deleted ${commit.fileName.split('/').pop()}` : `Edited ${commit.fileName.split('/').pop()}`)}
                   </span>
-                  <span className={`text-[11px] truncate ${isSelected ? 'text-zinc-200' : 'text-zinc-400'}`}>
-                    {formattedDate}
-                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className={`text-[10px] ${isSelected ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                      {commit.authorName}
+                    </span>
+                    <span className="text-[10px] text-zinc-600">•</span>
+                    <span className={`text-[10px] truncate ${isSelected ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                      {formattedDate}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="text-[12px] text-zinc-300 truncate pl-10" title={commit.fileName}>
-                {commit.fileName.split('/').pop()}
               </div>
             </div>
           );

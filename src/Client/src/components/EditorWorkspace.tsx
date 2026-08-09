@@ -33,6 +33,7 @@ export function EditorWorkspace() {
   const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
   const lastExcalidrawJson = useRef("[]");
   const excalidrawDebounce = useRef<NodeJS.Timeout | null>(null);
+  const excalidrawCommitDebounce = useRef<NodeJS.Timeout | null>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const textareaRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
@@ -252,6 +253,12 @@ export function EditorWorkspace() {
                       if (newJson !== lastExcalidrawJson.current) {
                         updateFile(newJson);
                         lastExcalidrawJson.current = newJson;
+                        
+                        if (excalidrawCommitDebounce.current) clearTimeout(excalidrawCommitDebounce.current);
+                        const fileToCommit = activeFile;
+                        excalidrawCommitDebounce.current = setTimeout(async () => {
+                          if (fileToCommit) await api.commitFile(fileToCommit);
+                        }, 5000);
                       }
                     }, 500);
                   }}
