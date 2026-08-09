@@ -95,12 +95,7 @@ public class SyncManager
 
         void ScanDirectory(DirectoryInfo d, string relativePath)
         {
-            if (d.Name.StartsWith(".") && d.Name != ".synq" && d.Name != ".git")
-            {
-                /* allow other dots if needed, but let's exclude explicitly */
-            }
-
-            if (d.Name == ".synq" || d.Name == ".git" || d.Name == "node_modules") return;
+            if (d.Name == ".git" || d.Name == "node_modules") return;
 
             if (!string.IsNullOrEmpty(relativePath))
             {
@@ -108,12 +103,22 @@ public class SyncManager
                 allEntriesOnDisk[normPath] = (d.FullName, true);
             }
 
-            foreach (var file in d.GetFiles("*.md"))
+            var isSynqRoot = relativePath == ".synq";
+            var isSynqHistory = relativePath.StartsWith(".synq/history") || relativePath.StartsWith(".synq\\history");
+
+            foreach (var file in d.GetFiles())
             {
-                var relPath = string.IsNullOrEmpty(relativePath)
-                    ? file.Name
-                    : $"{relativePath}/{file.Name}".Replace('\\', '/');
-                allEntriesOnDisk[relPath] = (file.FullName, false);
+                if (isSynqRoot && file.Name == "manifest.json") continue;
+                if (isSynqRoot && file.Name != "file_index.json") continue;
+
+                if (file.Extension == ".md" || file.Extension == ".excalidraw" || isSynqHistory ||
+                    (isSynqRoot && file.Name == "file_index.json"))
+                {
+                    var relPath = string.IsNullOrEmpty(relativePath)
+                        ? file.Name
+                        : $"{relativePath}/{file.Name}".Replace('\\', '/');
+                    allEntriesOnDisk[relPath] = (file.FullName, false);
+                }
             }
 
             foreach (var subDir in d.GetDirectories())

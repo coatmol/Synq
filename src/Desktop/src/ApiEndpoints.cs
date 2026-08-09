@@ -2,7 +2,10 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using Engine;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using Velopack;
@@ -236,6 +239,30 @@ public static class ApiEndpoints
                     Directory.Move(oldAbs, newAbs);
                 }
 
+                var indexFile = Path.Combine(state.CurrentFolder, ".synq", "file_index.json");
+                if (File.Exists(indexFile))
+                {
+                    var index = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                        await File.ReadAllTextAsync(indexFile));
+                    if (index != null)
+                    {
+                        var keysToUpdate = index.Keys.Where(k => k == oldPath || k.StartsWith(oldPath + "/")).ToList();
+                        var changed = false;
+                        foreach (var key in keysToUpdate)
+                        {
+                            var uuid = index[key];
+                            index.Remove(key);
+                            var updatedKey = key == oldPath ? newPath : newPath + key.Substring(oldPath.Length);
+                            index[updatedKey] = uuid;
+                            changed = true;
+                        }
+
+                        if (changed)
+                            await File.WriteAllTextAsync(indexFile,
+                                JsonSerializer.Serialize(index, new JsonSerializerOptions { WriteIndented = true }));
+                    }
+                }
+
                 sync.InitializeLocalFolder();
                 await hubContext.Clients.All.SendAsync("ItemRenamed", oldPath, newPath);
                 var discovery = req.HttpContext.RequestServices.GetService<LanDiscoveryService>();
@@ -255,6 +282,7 @@ public static class ApiEndpoints
             var absPath = PathUtils.GetSafePath(state.CurrentFolder, path);
             if (absPath == null) return Results.BadRequest();
 
+            // TODO: Make this platform-independent
             Process.Start(new ProcessStartInfo
             {
                 FileName = "explorer.exe",
@@ -322,7 +350,8 @@ public static class ApiEndpoints
                                                 context.Connection.LocalIpAddress?.ToString());
 
             if (isLocal)
-                return Results.Ok(new {
+                return Results.Ok(new
+                {
                     username = state.Settings.Username,
                     password = state.Settings.Password,
                     recentFolders = state.Settings.RecentFolders
@@ -351,9 +380,9 @@ public static class ApiEndpoints
         app.MapGet("/api/version", () =>
         {
             var version = Assembly.GetEntryAssembly()?
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion 
-                ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "1.0.0";
-            
+                              .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                          ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "1.0.0";
+
             var cleanVersion = version.Split('+')[0];
             return Results.Ok(new { version = cleanVersion });
         });
@@ -433,5 +462,104 @@ public static class ApiEndpoints
 
             return Results.BadRequest(new { message = "No updates available." });
         });
+
+        app.MapPost("/api/commit", async (HttpRequest req, WorkspaceState state, WebRtcPeerManager wrtc) =>
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonDocument.Parse(body);
+            var fileName = data.RootElement.GetProperty("fileName").GetString()!;
+
+            if (!fileName.EndsWith(".md") && !fileName.EndsWith(".excalidraw"))
+                return Results.BadRequest(new
+                    { message = "Invalid file type. Only .md and .excalidraw files are supported." });
+
+            try
+            {
+                var absPath = PathUtils.GetSafePath(state.CurrentFolder, fileName);
+                if (absPath == null || !File.Exists(absPath)) return Results.NotFound();
+
+                var content = await File.ReadAllTextAsync(absPath);
+
+                string commitId;
+                using (var sha256 = SHA256.Create())
+                {
+                    var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(content));
+                    commitId = Convert.ToHexString(hashBytes).ToLowerInvariant();
+                }
+
+                var dotSynq = Path.Combine(state.CurrentFolder, ".synq");
+                var indexFile = Path.Combine(dotSynq, "file_index.json");
+                if (!Directory.Exists(dotSynq)) Directory.CreateDirectory(dotSynq);
+
+                Dictionary<string, string> index = new();
+                if (File.Exists(indexFile))
+                    index = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                        await File.ReadAllTextAsync(indexFile)) ?? new Dictionary<string, string>();
+
+                if (!index.TryGetValue(fileName, out var uuid))
+                {
+                    uuid = Guid.NewGuid().ToString("N");
+                    index[fileName] = uuid;
+                    await File.WriteAllTextAsync(indexFile,
+                        JsonSerializer.Serialize(index, new JsonSerializerOptions { WriteIndented = true }));
+                }
+
+                var historyDir = Path.Combine(dotSynq, "history", uuid);
+                var objectsDir = Path.Combine(historyDir, "objects");
+                if (!Directory.Exists(objectsDir)) Directory.CreateDirectory(objectsDir);
+
+                var objectFile = Path.Combine(objectsDir, $"{commitId}.bin");
+                if (!File.Exists(objectFile))
+                {
+                    var compressed = MarkdownCompressor.Compress(content);
+                    await File.WriteAllBytesAsync(objectFile, compressed);
+                }
+
+                var commitsFile = Path.Combine(historyDir, "commits.json");
+                CommitHistory history = new();
+                if (File.Exists(commitsFile))
+                    history = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile)) ??
+                              new CommitHistory();
+
+                if (history.Commits.Any(c => c.CommitId == commitId))
+                    return Results.Ok(new { message = "No changes to commit" });
+
+                var newCommit = new CommitRecord
+                {
+                    CommitId = commitId,
+                    ParentId = history.Head,
+                    Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    AuthorName = state.Settings.Username
+                };
+
+                history.Commits.Add(newCommit);
+                history.Head = commitId;
+
+                await File.WriteAllTextAsync(commitsFile,
+                    JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true }));
+
+                return Results.Ok();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                return Results.BadRequest(new { message = "Failed to commit changes: " + e.Message });
+            }
+        });
     }
+}
+
+public class CommitRecord
+{
+    public string CommitId { get; set; } = string.Empty;
+    public string? ParentId { get; set; }
+    public long Timestamp { get; set; }
+    public string AuthorName { get; set; } = string.Empty;
+}
+
+public class CommitHistory
+{
+    public string? Head { get; set; }
+    public List<CommitRecord> Commits { get; set; } = new();
 }

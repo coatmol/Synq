@@ -312,5 +312,34 @@ export const api = {
     } catch (e) {
       console.error("Failed to update to latest version", e);
     }
+  },
+
+  getCommits: async (): Promise<any[]> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/commits`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (e) {
+      console.error("Failed to fetch commits", e);
+    }
+
+    return [];
+  },
+
+  commitFile: async (fileName: string): Promise<void> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/commit`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({fileName})
+      });
+
+      if (!response.ok) {
+        console.error("Failed to commit file", response.statusText);
+      }
+    } catch (e) {
+      console.error("Failed to commit file", e);
+    }
   }
 };

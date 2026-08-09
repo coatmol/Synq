@@ -23,6 +23,7 @@ import {
 } from "./EditorExtensions";
 import {Excalidraw} from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
+import {api} from "../api.ts";
 
 export function EditorWorkspace() {
   const {text: remoteText, setDocumentStats, isLoading, activeFile, activeFileType} = useDocumentStore();
@@ -32,6 +33,7 @@ export function EditorWorkspace() {
   const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
   const lastExcalidrawJson = useRef("[]");
   const excalidrawDebounce = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const textareaRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
@@ -98,6 +100,12 @@ export function EditorWorkspace() {
           }
 
           if (update.docChanged) {
+            if (debounceTimer.current) clearTimeout(debounceTimer.current);
+            const file = activeFile;
+            debounceTimer.current = setTimeout(async () => {
+              await api.commitFile(file);
+            }, 5000);
+
             const isRemote = update.transactions.some(tr => tr.annotation(remoteUpdateAnnotation));
             if (!isRemote) {
               const changes: {
