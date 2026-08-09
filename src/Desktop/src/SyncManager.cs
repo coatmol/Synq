@@ -32,12 +32,15 @@ public class SyncManager
     private readonly DocumentManager _documentManager;
     private readonly IHubContext<DocumentHub> _hubContext;
     private readonly WorkspaceState _state;
+    private readonly VersionControlManager _vc;
 
-    public SyncManager(WorkspaceState state, DocumentManager documentManager, IHubContext<DocumentHub> hubContext)
+    public SyncManager(WorkspaceState state, DocumentManager documentManager, IHubContext<DocumentHub> hubContext,
+        VersionControlManager vc)
     {
         _state = state;
         _documentManager = documentManager;
         _hubContext = hubContext;
+        _vc = vc;
     }
 
     private string GetManifestPath(string folderPath)
@@ -296,10 +299,34 @@ public class SyncManager
 
         var content =
             await http.GetStringAsync($"{peerBaseUrl}/api/rawfile?filename={Uri.EscapeDataString(relativePath)}");
+
+        var isSynqHistory = relativePath.StartsWith(".synq/history/") || relativePath.StartsWith(".synq\\history\\");
+        var isCommitsJson = relativePath.EndsWith("commits.json");
+        var isSynqIndex = relativePath == ".synq/file_index.json" || relativePath == ".synq\\file_index.json";
+
+        if (isSynqIndex)
+        {
+            await _vc.MergeFileIndexAsync(content);
+            return;
+        }
+
+        if (isSynqHistory && isCommitsJson)
+        {
+            var uuid = relativePath.Split(new[] { '/', '\\' })[2];
+            await _vc.MergeCommitsJsonAsync(uuid, content);
+            return;
+        }
+
+        var isDoc = relativePath.EndsWith(".md") || relativePath.EndsWith(".excalidraw");
+
+        if (File.Exists(path) && isDoc) await _vc.CommitFileAsync(relativePath, "Auto-Save (Before Remote Sync)");
+
         File.WriteAllText(path, content);
         var doc = _documentManager.GetOrCreateDocument(relativePath);
         doc.OverwriteFromContent(content); // Update memory correctly!
         await _hubContext.Clients.All.SendAsync("DocumentUpdated", relativePath, content);
+
+        if (isDoc) await _vc.CommitFileAsync(relativePath, "Auto-Save (Remote Sync)");
     }
 
 

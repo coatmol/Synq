@@ -226,6 +226,7 @@ internal class Program
         builder.Services.AddSingleton<StunDiagnosticService>();
         builder.Services.AddSingleton<WebRtcPeerManager>();
         builder.Services.AddSingleton<HeartbeatService>();
+        builder.Services.AddSingleton<VersionControlManager>();
 
         builder.Services.AddCors(options =>
         {

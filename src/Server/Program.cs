@@ -18,6 +18,7 @@ builder.Services.AddSingleton<SignalProxyService>();
 builder.Services.AddSingleton<StunDiagnosticService>();
 builder.Services.AddSingleton<WebRtcPeerManager>();
 builder.Services.AddSingleton<HeartbeatService>();
+builder.Services.AddSingleton<VersionControlManager>();
 builder.Services.AddSignalR(options => { options.MaximumReceiveMessageSize = null; });
 builder.Services.AddCors(options =>
 {

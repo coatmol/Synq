@@ -2,10 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
-using Engine;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using Velopack;
@@ -75,7 +72,8 @@ public static class ApiEndpoints
         });
 
         app.MapPost("/api/rawfile",
-            async (HttpRequest req, WorkspaceState state, DocumentManager docManager, SyncManager sync) =>
+            async (HttpRequest req, WorkspaceState state, DocumentManager docManager, SyncManager sync,
+                VersionControlManager vc) =>
             {
                 using var reader = new StreamReader(req.Body);
                 var body = await reader.ReadToEndAsync();
@@ -98,9 +96,35 @@ public static class ApiEndpoints
                 }
 
                 var content = data.RootElement.GetProperty("content").GetString();
+
+                var isSynqHistory = filename!.StartsWith(".synq/history/") || filename.StartsWith(".synq\\history\\");
+                var isCommitsJson = filename.EndsWith("commits.json");
+                var isSynqIndex = filename == ".synq/file_index.json" || filename == ".synq\\file_index.json";
+
+                if (isSynqIndex)
+                {
+                    await vc.MergeFileIndexAsync(content!);
+                    sync.InitializeLocalFolder();
+                    return Results.Ok();
+                }
+
+                if (isSynqHistory && isCommitsJson)
+                {
+                    var uuid = filename.Split(new[] { '/', '\\' })[2];
+                    await vc.MergeCommitsJsonAsync(uuid, content!);
+                    sync.InitializeLocalFolder();
+                    return Results.Ok();
+                }
+
+                var isDoc = filename.EndsWith(".md") || filename.EndsWith(".excalidraw");
+
+                if (File.Exists(path) && isDoc) await vc.CommitFileAsync(filename, "Auto-Save (Before Remote Push)");
+
                 await File.WriteAllTextAsync(path, content!);
                 var doc = docManager.GetOrCreateDocument(filename!);
                 doc.OverwriteFromContent(content!);
+
+                if (isDoc) await vc.CommitFileAsync(filename, "Auto-Save (Remote Push)");
 
                 // Re-init local folder to update hashes
                 sync.InitializeLocalFolder();
@@ -463,7 +487,8 @@ public static class ApiEndpoints
             return Results.BadRequest(new { message = "No updates available." });
         });
 
-        app.MapPost("/api/commit", async (HttpRequest req, WorkspaceState state, WebRtcPeerManager wrtc) =>
+        app.MapPost("/api/commit", async (HttpRequest req, WorkspaceState state, VersionControlManager vc,
+            SyncManager sync, LanDiscoveryService discovery) =>
         {
             using var reader = new StreamReader(req.Body);
             var body = await reader.ReadToEndAsync();
@@ -476,68 +501,14 @@ public static class ApiEndpoints
 
             try
             {
-                var absPath = PathUtils.GetSafePath(state.CurrentFolder, fileName);
-                if (absPath == null || !File.Exists(absPath)) return Results.NotFound();
+                var commitId = await vc.CommitFileAsync(fileName, state.Settings.Username);
+                if (commitId == null) return Results.NotFound();
 
-                var content = await File.ReadAllTextAsync(absPath);
+                sync.InitializeLocalFolder();
 
-                string commitId;
-                using (var sha256 = SHA256.Create())
-                {
-                    var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(content));
-                    commitId = Convert.ToHexString(hashBytes).ToLowerInvariant();
-                }
-
-                var dotSynq = Path.Combine(state.CurrentFolder, ".synq");
-                var indexFile = Path.Combine(dotSynq, "file_index.json");
-                if (!Directory.Exists(dotSynq)) Directory.CreateDirectory(dotSynq);
-
-                Dictionary<string, string> index = new();
-                if (File.Exists(indexFile))
-                    index = JsonSerializer.Deserialize<Dictionary<string, string>>(
-                        await File.ReadAllTextAsync(indexFile)) ?? new Dictionary<string, string>();
-
-                if (!index.TryGetValue(fileName, out var uuid))
-                {
-                    uuid = Guid.NewGuid().ToString("N");
-                    index[fileName] = uuid;
-                    await File.WriteAllTextAsync(indexFile,
-                        JsonSerializer.Serialize(index, new JsonSerializerOptions { WriteIndented = true }));
-                }
-
-                var historyDir = Path.Combine(dotSynq, "history", uuid);
-                var objectsDir = Path.Combine(historyDir, "objects");
-                if (!Directory.Exists(objectsDir)) Directory.CreateDirectory(objectsDir);
-
-                var objectFile = Path.Combine(objectsDir, $"{commitId}.bin");
-                if (!File.Exists(objectFile))
-                {
-                    var compressed = MarkdownCompressor.Compress(content);
-                    await File.WriteAllBytesAsync(objectFile, compressed);
-                }
-
-                var commitsFile = Path.Combine(historyDir, "commits.json");
-                CommitHistory history = new();
-                if (File.Exists(commitsFile))
-                    history = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile)) ??
-                              new CommitHistory();
-
-                if (history.Commits.Any(c => c.CommitId == commitId))
-                    return Results.Ok(new { message = "No changes to commit" });
-
-                var newCommit = new CommitRecord
-                {
-                    CommitId = commitId,
-                    ParentId = history.Head,
-                    Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    AuthorName = state.Settings.Username
-                };
-
-                history.Commits.Add(newCommit);
-                history.Head = commitId;
-
-                await File.WriteAllTextAsync(commitsFile,
-                    JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true }));
+                // Let peers know we have new commits
+                if (discovery.PeerConnection != null)
+                    _ = discovery.PeerConnection.SendAsync("FileCreated", ".synq/file_index.json");
 
                 return Results.Ok();
             }
