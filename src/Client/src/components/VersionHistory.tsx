@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 import {api} from '../api';
 import {useDocumentStore} from '../hooks/useDocumentHub';
+import {UserAvatar} from './UserAvatar';
 
 export function VersionHistory() {
   const [commits, setCommits] = useState<any[]>([]);
@@ -50,14 +51,11 @@ export function VersionHistory() {
                   : 'hover:bg-zinc-800/50 border-l-2 border-transparent'
               }`}
             >
-              <div className="flex items-center gap-2 mb-1.5">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
-                    isSelected ? 'bg-emerald-600' : 'bg-zinc-600'
-                  }`}>
-                  {initials}
+              <div className="flex gap-2.5 items-start">
+                <div className={`shrink-0 mt-0.5 rounded-full ${isSelected ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-[#18181b]' : ''}`}>
+                  <UserAvatar name={initials} size="md" />
                 </div>
-                <div className="flex flex-col min-w-0">
+                <div className="flex flex-col min-w-0 flex-1">
                   <span className={`text-[11px] truncate ${isSelected ? 'text-zinc-200' : 'text-zinc-400'}`}>
                     {commit.authorName}
                   </span>
