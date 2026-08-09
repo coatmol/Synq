@@ -29,6 +29,15 @@ export function VersionHistory() {
         {commits.map((commit) => {
           const isSelected = activeFile?.startsWith(`diff:${commit.fileName}:${commit.commitId}`);
           const date = new Date(commit.timestamp);
+          const month = date.toLocaleString('en-US', { month: 'short' });
+          const day = date.getDate().toString().padStart(2, '0');
+          const year = date.getFullYear();
+          let hours = date.getHours();
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          hours = hours % 12;
+          hours = hours ? hours : 12;
+          const minutes = date.getMinutes().toString().padStart(2, '0');
+          const formattedDate = `${month} ${day}, ${year} ${hours}:${minutes} ${ampm}`;
           const initials = commit.authorName ? commit.authorName.slice(0, 2).toUpperCase() : 'ME';
 
           return (
@@ -43,18 +52,21 @@ export function VersionHistory() {
             >
               <div className="flex items-center gap-2 mb-1.5">
                 <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
                     isSelected ? 'bg-emerald-600' : 'bg-zinc-600'
                   }`}>
                   {initials}
                 </div>
                 <div className="flex flex-col min-w-0">
                   <span className={`text-[11px] truncate ${isSelected ? 'text-zinc-200' : 'text-zinc-400'}`}>
-                    {date.toLocaleString()}
+                    {commit.authorName}
+                  </span>
+                  <span className={`text-[11px] truncate ${isSelected ? 'text-zinc-200' : 'text-zinc-400'}`}>
+                    {formattedDate}
                   </span>
                 </div>
               </div>
-              <div className="text-[12px] text-zinc-300 truncate pl-8" title={commit.fileName}>
+              <div className="text-[12px] text-zinc-300 truncate pl-10" title={commit.fileName}>
                 {commit.fileName.split('/').pop()}
               </div>
             </div>
