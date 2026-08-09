@@ -110,8 +110,22 @@ export function AppLayout({children}: AppLayoutProps) {
                 <X className="w-4 h-4"/>
               </button>
             </div>
-            <div className="flex-1 overflow-hidden" onClick={() => setShowMobileMenu(false)}>
-              <FileTree/>
+            <div className="flex bg-[#202020] rounded p-1 mx-2 mt-2 shrink-0">
+              <button 
+                onClick={() => setSidebarTab('files')}
+                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-[11px] rounded transition-colors ${sidebarTab === 'files' ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+              >
+                <FolderTree className="w-3.5 h-3.5" /> Files
+              </button>
+              <button 
+                onClick={() => setSidebarTab('history')}
+                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-[11px] rounded transition-colors ${sidebarTab === 'history' ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+              >
+                <History className="w-3.5 h-3.5" /> History
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden mt-2" onClick={() => setShowMobileMenu(false)}>
+              {sidebarTab === 'files' ? <FileTree/> : <VersionHistory/>}
             </div>
           </div>
           <div className="flex-1 bg-black/50" onClick={() => setShowMobileMenu(false)}/>
