@@ -1,8 +1,9 @@
-import {Avatar, Tooltip, Button} from "@heroui/react";
+import {Tooltip, Button} from "@heroui/react";
 import {useEffect, useState} from "react";
 import {api} from "../api";
 import {WanTokenModal} from "./WanTokenModal";
 import {PlusCircle} from "lucide-react";
+import {UserAvatar} from "./UserAvatar";
 
 export function LanPeersPanel() {
   const [wanPeers, setWanPeers] = useState<any[]>([]);
@@ -44,14 +45,10 @@ export function LanPeersPanel() {
               <div
                 className={`relative inline-block rounded-full ring-2 ring-[#1e1e1e] transition-transform hover:-translate-y-0.5 hover:z-10 cursor-default ${peer.status === 'offline' ? 'opacity-50 grayscale' : ''}`}
               >
-                <Avatar size="sm"
-                        color={peer.id === 'self' ? 'accent' : peer.isWan ? 'default' : peer.status === 'online' ? 'success' : 'default'}
-                        className={peer.id === 'self' ? 'bg-indigo-600 text-white' : peer.isWan ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-300'}>
-                  <Avatar.Fallback>{peer.init || peer.id.substring(0, 2).toUpperCase()}</Avatar.Fallback>
-                </Avatar>
+                <UserAvatar size="sm" name={peer.name || peer.id} />
                 {peer.status === 'online' && (
                   <span
-                    className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ring-2 ring-[#1e1e1e] ${peer.id === 'self' ? 'bg-indigo-400' : peer.isWan ? 'bg-blue-400' : 'bg-emerald-500'}`}/>
+                    className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ring-2 ring-[#1e1e1e] ${peer.id === 'self' ? 'bg-green-600' : peer.isWan ? 'bg-blue-400' : 'bg-emerald-500'}`}/>
                 )}
               </div>
             </Tooltip.Trigger>

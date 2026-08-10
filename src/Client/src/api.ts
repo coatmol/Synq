@@ -67,6 +67,34 @@ export const api = {
     }
   },
 
+  updateFile: async (filename: string, content: string): Promise<boolean> => {
+    try {
+      const response = await fetchWithAuth(`${BASE_URL}/api/files/update`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({filename, content})
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to update file", e);
+      return false;
+    }
+  },
+
+  restoreFile: async (filename: string, content: string, commitId: string): Promise<boolean> => {
+    try {
+      const response = await fetchWithAuth(`${BASE_URL}/api/files/restore`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({filename, content, commitId})
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to restore file", e);
+      return false;
+    }
+  },
+
   renameItem: async (oldPath: string, newPath: string): Promise<boolean> => {
     try {
       const response = await fetchWithAuth(`${BASE_URL}/api/files/rename`, {
@@ -311,6 +339,50 @@ export const api = {
       }
     } catch (e) {
       console.error("Failed to update to latest version", e);
+    }
+  },
+
+  getCommits: async (fileName?: string): Promise<any[]> => {
+    try {
+      const qs = fileName ? `?fileName=${encodeURIComponent(fileName)}` : '';
+      const response = await fetch(`${BASE_URL}/api/commits${qs}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.commits;
+      }
+    } catch (e) {
+      console.error("Failed to fetch commits", e);
+    }
+
+    return [];
+  },
+
+  getCommitContent: async (fileName: string, commitId: string): Promise<string | null> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/commit/content?fileName=${encodeURIComponent(fileName)}&commitId=${encodeURIComponent(commitId)}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.content;
+      }
+    } catch (e) {
+      console.error("Failed to fetch commit content", e);
+    }
+    return null;
+  },
+
+  commitFile: async (fileName: string): Promise<void> => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/commit`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({fileName})
+      });
+
+      if (!response.ok) {
+        console.error("Failed to commit file", response.statusText);
+      }
+    } catch (e) {
+      console.error("Failed to commit file", e);
     }
   }
 };

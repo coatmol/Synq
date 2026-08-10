@@ -1,10 +1,11 @@
-import {Button, Avatar, Spinner} from "@heroui/react";
+import {Button, Spinner} from "@heroui/react";
 import {useState, useEffect} from "react";
 import {toast} from "sonner";
 import {api} from "../api";
 import {ConnectModal} from "./ConnectModal";
 import {ArrowRight, MoreVertical, Minus, Square, X} from "lucide-react";
 import {Dropdown} from "@heroui/react";
+import {UserAvatar} from "./UserAvatar";
 
 interface WelcomeScreenProps {
   onOpenEditor: (path?: string) => void;
@@ -303,10 +304,7 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
                           className={`flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800 transition-colors cursor-pointer group ${peer.status === 'offline' ? 'opacity-50 grayscale' : ''}`}
                         >
                           <div className="relative">
-                            <Avatar size="sm"
-                                    className="bg-zinc-800 text-zinc-300 w-8 h-8 text-xs">
-                              <Avatar.Fallback>{peer.init}</Avatar.Fallback>
-                            </Avatar>
+                            <UserAvatar size="md" name={peer.name || peer.id} />
                             {peer.status === 'online' && (
                               <span
                                 className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#1e1e1e]"/>

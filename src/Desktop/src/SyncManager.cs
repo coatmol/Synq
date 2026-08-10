@@ -32,12 +32,15 @@ public class SyncManager
     private readonly DocumentManager _documentManager;
     private readonly IHubContext<DocumentHub> _hubContext;
     private readonly WorkspaceState _state;
+    private readonly VersionControlManager _vc;
 
-    public SyncManager(WorkspaceState state, DocumentManager documentManager, IHubContext<DocumentHub> hubContext)
+    public SyncManager(WorkspaceState state, DocumentManager documentManager, IHubContext<DocumentHub> hubContext,
+        VersionControlManager vc)
     {
         _state = state;
         _documentManager = documentManager;
         _hubContext = hubContext;
+        _vc = vc;
     }
 
     private string GetManifestPath(string folderPath)
@@ -95,12 +98,7 @@ public class SyncManager
 
         void ScanDirectory(DirectoryInfo d, string relativePath)
         {
-            if (d.Name.StartsWith(".") && d.Name != ".synq" && d.Name != ".git")
-            {
-                /* allow other dots if needed, but let's exclude explicitly */
-            }
-
-            if (d.Name == ".synq" || d.Name == ".git" || d.Name == "node_modules") return;
+            if (d.Name == ".git" || d.Name == "node_modules") return;
 
             if (!string.IsNullOrEmpty(relativePath))
             {
@@ -108,12 +106,22 @@ public class SyncManager
                 allEntriesOnDisk[normPath] = (d.FullName, true);
             }
 
-            foreach (var file in d.GetFiles("*.md"))
+            var isSynqRoot = relativePath == ".synq";
+            var isSynqHistory = relativePath.StartsWith(".synq/history") || relativePath.StartsWith(".synq\\history");
+
+            foreach (var file in d.GetFiles())
             {
-                var relPath = string.IsNullOrEmpty(relativePath)
-                    ? file.Name
-                    : $"{relativePath}/{file.Name}".Replace('\\', '/');
-                allEntriesOnDisk[relPath] = (file.FullName, false);
+                if (isSynqRoot && file.Name == "manifest.json") continue;
+                if (isSynqRoot && file.Name != "file_index.json") continue;
+
+                if (file.Extension == ".md" || file.Extension == ".excalidraw" || isSynqHistory ||
+                    (isSynqRoot && file.Name == "file_index.json"))
+                {
+                    var relPath = string.IsNullOrEmpty(relativePath)
+                        ? file.Name
+                        : $"{relativePath}/{file.Name}".Replace('\\', '/');
+                    allEntriesOnDisk[relPath] = (file.FullName, false);
+                }
             }
 
             foreach (var subDir in d.GetDirectories())
@@ -291,10 +299,35 @@ public class SyncManager
 
         var content =
             await http.GetStringAsync($"{peerBaseUrl}/api/rawfile?filename={Uri.EscapeDataString(relativePath)}");
+
+        var isSynqHistory = relativePath.StartsWith(".synq/history/") || relativePath.StartsWith(".synq\\history\\");
+        var isCommitsJson = relativePath.EndsWith("commits.json");
+        var isSynqIndex = relativePath == ".synq/file_index.json" || relativePath == ".synq\\file_index.json";
+
+        if (isSynqIndex)
+        {
+            await _vc.MergeFileIndexAsync(content);
+            return;
+        }
+
+        if (isSynqHistory && isCommitsJson)
+        {
+            var uuid = relativePath.Split(new[] { '/', '\\' })[2];
+            if (!System.Text.RegularExpressions.Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return;
+            await _vc.MergeCommitsJsonAsync(uuid, content);
+            return;
+        }
+
+        var isDoc = relativePath.EndsWith(".md") || relativePath.EndsWith(".excalidraw");
+
+        if (File.Exists(path) && isDoc) await _vc.CommitFileAsync(relativePath, "Auto-Save (Before Remote Sync)");
+
         File.WriteAllText(path, content);
         var doc = _documentManager.GetOrCreateDocument(relativePath);
         doc.OverwriteFromContent(content); // Update memory correctly!
         await _hubContext.Clients.All.SendAsync("DocumentUpdated", relativePath, content);
+
+        if (isDoc) await _vc.CommitFileAsync(relativePath, "Auto-Save (Remote Sync)");
     }
 
 

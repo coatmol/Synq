@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text.Json;
+using Engine;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using Velopack;
@@ -71,8 +72,60 @@ public static class ApiEndpoints
             return Results.NotFound();
         });
 
+        app.MapPost("/api/files/update", async (HttpRequest req, WorkspaceState state, DocumentManager docManager, VersionControlManager vc, SyncManager sync, IHubContext<DocumentHub> hubContext) =>
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonDocument.Parse(body);
+            var filename = data.RootElement.GetProperty("filename").GetString();
+            var content = data.RootElement.GetProperty("content").GetString();
+            
+            var path = PathUtils.GetSafePath(state.CurrentFolder, filename!);
+            if (path == null) return Results.BadRequest();
+            
+            var isDoc = filename!.EndsWith(".md") || filename.EndsWith(".excalidraw");
+            if (File.Exists(path) && isDoc) await vc.CommitFileAsync(filename, "Auto-Save (Before Restore)");
+            
+            await File.WriteAllTextAsync(path, content!);
+            var doc = docManager.GetOrCreateDocument(filename!);
+            doc.OverwriteFromContent(content!);
+            
+            if (isDoc) await vc.CommitFileAsync(filename, state.Settings.Username);
+            
+            sync.InitializeLocalFolder();
+            await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, content);
+            return Results.Ok();
+        });
+
+        app.MapPost("/api/files/restore", async (HttpRequest req, WorkspaceState state, DocumentManager docManager, VersionControlManager vc, SyncManager sync, IHubContext<DocumentHub> hubContext) =>
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonDocument.Parse(body);
+            var filename = data.RootElement.GetProperty("filename").GetString();
+            var content = data.RootElement.GetProperty("content").GetString();
+            var commitId = data.RootElement.GetProperty("commitId").GetString();
+            
+            var path = PathUtils.GetSafePath(state.CurrentFolder, filename!);
+            if (path == null) return Results.BadRequest();
+            
+            var isDoc = filename!.EndsWith(".md") || filename.EndsWith(".excalidraw");
+            if (File.Exists(path) && isDoc) await vc.CommitFileAsync(filename, "Auto-Save (Before Restore)");
+            
+            await File.WriteAllTextAsync(path, content!);
+            var doc = docManager.GetOrCreateDocument(filename!);
+            doc.OverwriteFromContent(content!);
+            
+            if (isDoc) await vc.CommitFileAsync(filename, state.Settings.Username, $"Restored from {commitId}");
+            
+            sync.InitializeLocalFolder();
+            await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, content);
+            return Results.Ok();
+        });
+
         app.MapPost("/api/rawfile",
-            async (HttpRequest req, WorkspaceState state, DocumentManager docManager, SyncManager sync) =>
+            async (HttpRequest req, WorkspaceState state, DocumentManager docManager, SyncManager sync,
+                VersionControlManager vc) =>
             {
                 using var reader = new StreamReader(req.Body);
                 var body = await reader.ReadToEndAsync();
@@ -95,9 +148,36 @@ public static class ApiEndpoints
                 }
 
                 var content = data.RootElement.GetProperty("content").GetString();
+
+                var isSynqHistory = filename!.StartsWith(".synq/history/") || filename.StartsWith(".synq\\history\\");
+                var isCommitsJson = filename.EndsWith("commits.json");
+                var isSynqIndex = filename == ".synq/file_index.json" || filename == ".synq\\file_index.json";
+
+                if (isSynqIndex)
+                {
+                    await vc.MergeFileIndexAsync(content!);
+                    sync.InitializeLocalFolder();
+                    return Results.Ok();
+                }
+
+                if (isSynqHistory && isCommitsJson)
+                {
+                    var uuid = filename.Split(new[] { '/', '\\' })[2];
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return Results.BadRequest();
+                    await vc.MergeCommitsJsonAsync(uuid, content!);
+                    sync.InitializeLocalFolder();
+                    return Results.Ok();
+                }
+
+                var isDoc = filename.EndsWith(".md") || filename.EndsWith(".excalidraw");
+
+                if (File.Exists(path) && isDoc) await vc.CommitFileAsync(filename, "Auto-Save (Before Remote Push)");
+
                 await File.WriteAllTextAsync(path, content!);
                 var doc = docManager.GetOrCreateDocument(filename!);
                 doc.OverwriteFromContent(content!);
+
+                if (isDoc) await vc.CommitFileAsync(filename, "Auto-Save (Remote Push)");
 
                 // Re-init local folder to update hashes
                 sync.InitializeLocalFolder();
@@ -152,6 +232,9 @@ public static class ApiEndpoints
                     else if (filename.EndsWith(".excalidraw"))
                         await File.WriteAllTextAsync(filePath,
                             "{\"type\":\"excalidraw\",\"version\":2,\"source\":\"https://excalidraw.com\",\"elements\":[],\"appState\":{\"gridSize\": 20, \"gridStep\": 5, \"gridModeEnabled\": true, \"viewBackgroundColor\":\"#ffffff\"}}");
+
+                    var vc = req.HttpContext.RequestServices.GetService<VersionControlManager>();
+                    if (vc != null) await vc.CommitFileAsync(filename, state.Settings.Username);
                 }
 
                 sync.InitializeLocalFolder();
@@ -164,15 +247,24 @@ public static class ApiEndpoints
         app.MapDelete("/api/files/{*filename}", async (string filename, WorkspaceState state, SyncManager sync,
             IHubContext<DocumentHub> hubContext, HttpContext httpContext) =>
         {
-            var filePath = PathUtils.GetSafePath(state.CurrentFolder, Uri.UnescapeDataString(filename));
+            var relativeName = Uri.UnescapeDataString(filename);
+            var filePath = PathUtils.GetSafePath(state.CurrentFolder, relativeName);
             if (filePath == null) return Results.BadRequest();
+
+            var vc = httpContext.RequestServices.GetService<VersionControlManager>();
+            if (vc != null)
+            {
+                await vc.CommitFileAsync(relativeName, state.Settings.Username);
+                await vc.CommitDeletionAsync(relativeName, state.Settings.Username);
+            }
 
             if (File.Exists(filePath)) File.Delete(filePath);
             sync.InitializeLocalFolder();
-            await hubContext.Clients.All.SendAsync("ItemDeleted", Uri.UnescapeDataString(filename));
+            await hubContext.Clients.All.SendAsync("ItemDeleted", relativeName);
+
             var discovery = httpContext.RequestServices.GetService<LanDiscoveryService>();
             if (discovery?.PeerConnection != null)
-                _ = discovery.PeerConnection.SendAsync("ItemDeleted", Uri.UnescapeDataString(filename));
+                _ = discovery.PeerConnection.SendAsync("ItemDeleted", relativeName);
             return Results.Ok();
         });
 
@@ -236,6 +328,30 @@ public static class ApiEndpoints
                     Directory.Move(oldAbs, newAbs);
                 }
 
+                var indexFile = Path.Combine(state.CurrentFolder, ".synq", "file_index.json");
+                if (File.Exists(indexFile))
+                {
+                    var index = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                        await File.ReadAllTextAsync(indexFile));
+                    if (index != null)
+                    {
+                        var keysToUpdate = index.Keys.Where(k => k == oldPath || k.StartsWith(oldPath + "/")).ToList();
+                        var changed = false;
+                        foreach (var key in keysToUpdate)
+                        {
+                            var uuid = index[key];
+                            index.Remove(key);
+                            var updatedKey = key == oldPath ? newPath : newPath + key.Substring(oldPath.Length);
+                            index[updatedKey] = uuid;
+                            changed = true;
+                        }
+
+                        if (changed)
+                            await File.WriteAllTextAsync(indexFile,
+                                JsonSerializer.Serialize(index, new JsonSerializerOptions { WriteIndented = true }));
+                    }
+                }
+
                 sync.InitializeLocalFolder();
                 await hubContext.Clients.All.SendAsync("ItemRenamed", oldPath, newPath);
                 var discovery = req.HttpContext.RequestServices.GetService<LanDiscoveryService>();
@@ -255,6 +371,7 @@ public static class ApiEndpoints
             var absPath = PathUtils.GetSafePath(state.CurrentFolder, path);
             if (absPath == null) return Results.BadRequest();
 
+            // TODO: Make this platform-independent
             Process.Start(new ProcessStartInfo
             {
                 FileName = "explorer.exe",
@@ -322,7 +439,8 @@ public static class ApiEndpoints
                                                 context.Connection.LocalIpAddress?.ToString());
 
             if (isLocal)
-                return Results.Ok(new {
+                return Results.Ok(new
+                {
                     username = state.Settings.Username,
                     password = state.Settings.Password,
                     recentFolders = state.Settings.RecentFolders
@@ -351,9 +469,9 @@ public static class ApiEndpoints
         app.MapGet("/api/version", () =>
         {
             var version = Assembly.GetEntryAssembly()?
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion 
-                ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "1.0.0";
-            
+                              .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                          ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "1.0.0";
+
             var cleanVersion = version.Split('+')[0];
             return Results.Ok(new { version = cleanVersion });
         });
@@ -433,5 +551,140 @@ public static class ApiEndpoints
 
             return Results.BadRequest(new { message = "No updates available." });
         });
+
+        app.MapPost("/api/commit", async (HttpRequest req, WorkspaceState state, VersionControlManager vc,
+            SyncManager sync, LanDiscoveryService discovery) =>
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonDocument.Parse(body);
+            var fileName = data.RootElement.GetProperty("fileName").GetString()!;
+
+            if (!fileName.EndsWith(".md") && !fileName.EndsWith(".excalidraw"))
+                return Results.BadRequest(new
+                    { message = "Invalid file type. Only .md and .excalidraw files are supported." });
+
+            try
+            {
+                var commitId = await vc.CommitFileAsync(fileName, state.Settings.Username);
+                if (commitId == null) return Results.NotFound();
+
+                sync.InitializeLocalFolder();
+
+                // Let peers know we have new commits
+                if (discovery.PeerConnection != null)
+                    _ = discovery.PeerConnection.SendAsync("FileCreated", ".synq/file_index.json");
+
+                return Results.Ok();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                return Results.BadRequest(new { message = "Failed to commit changes: " + e.Message });
+            }
+        });
+
+        app.MapGet("/api/commits", async (string? fileName, WorkspaceState state) =>
+        {
+            if (string.IsNullOrEmpty(state.CurrentFolder))
+                return Results.Ok(new { commits = new List<CommitRecord>() });
+            var dotSynq = Path.Combine(state.CurrentFolder, ".synq");
+            var indexFile = Path.Combine(dotSynq, "file_index.json");
+            if (!File.Exists(indexFile)) return Results.Ok(new { commits = new List<CommitRecord>() });
+
+            var index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile));
+            if (index == null) return Results.Ok(new { commits = new List<CommitRecord>() });
+
+            var allCommits = new List<object>();
+
+            if (!string.IsNullOrEmpty(fileName))
+            {
+                if (index.TryGetValue(fileName, out var uuid))
+                {
+                    var commitsFile = Path.Combine(dotSynq, "history", uuid, "commits.json");
+                    if (File.Exists(commitsFile))
+                    {
+                        var history =
+                            JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile));
+                        if (history != null)
+                            foreach (var c in history.Commits)
+                                allCommits.Add(new
+                                {
+                                    c.CommitId, c.ContentHash, c.ParentId, c.Timestamp, c.AuthorName, c.Message, c.IsDeleted,
+                                    fileName
+                                });
+                    }
+                }
+            }
+            else
+            {
+                foreach (var kvp in index)
+                {
+                    var fName = kvp.Key;
+                    var uuid = kvp.Value;
+                    var commitsFile = Path.Combine(dotSynq, "history", uuid, "commits.json");
+                    if (File.Exists(commitsFile))
+                    {
+                        var history =
+                            JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile));
+                        if (history != null)
+                            foreach (var c in history.Commits)
+                                allCommits.Add(new
+                                {
+                                    c.CommitId, c.ContentHash, c.ParentId, c.Timestamp, c.AuthorName, c.Message, c.IsDeleted,
+                                    fileName = fName
+                                });
+                    }
+                }
+            }
+
+            var sorted = allCommits.OrderByDescending(c => ((dynamic)c).Timestamp).ToList();
+            return Results.Ok(new { commits = sorted });
+        });
+
+        app.MapGet("/api/commit/content", async (string fileName, string commitId, WorkspaceState state) =>
+        {
+            if (string.IsNullOrEmpty(state.CurrentFolder)) return Results.NotFound();
+            var dotSynq = Path.Combine(state.CurrentFolder, ".synq");
+            var indexFile = Path.Combine(dotSynq, "file_index.json");
+            if (!File.Exists(indexFile)) return Results.NotFound();
+
+            var index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile));
+            if (index == null || !index.TryGetValue(fileName, out var uuid)) return Results.NotFound();
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(commitId, "^([0-9a-f]{32})$"))
+                return Results.BadRequest();
+
+            var commitsFile = Path.Combine(dotSynq, "history", uuid, "commits.json");
+            if (!File.Exists(commitsFile)) return Results.NotFound();
+            var history = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile));
+            var commit = history?.Commits.FirstOrDefault(c => c.CommitId == commitId);
+            if (commit == null) return Results.NotFound();
+            if (commit.IsDeleted) return Results.Ok(new { content = "" });
+
+            var objectFile = Path.Combine(dotSynq, "history", uuid, "objects", $"{commit.ContentHash}.bin");
+            if (!File.Exists(objectFile)) return Results.NotFound();
+
+            var bytes = await File.ReadAllBytesAsync(objectFile);
+            var content = MarkdownCompressor.Decompress(bytes);
+            return Results.Ok(new { content });
+        });
     }
+}
+
+public class CommitRecord
+{
+    public string CommitId { get; set; } = string.Empty;
+    public string ContentHash { get; set; } = string.Empty;
+    public string? ParentId { get; set; }
+    public long Timestamp { get; set; }
+    public string AuthorName { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public bool IsDeleted { get; set; }
+}
+
+public class CommitHistory
+{
+    public string? Head { get; set; }
+    public List<CommitRecord> Commits { get; set; } = new();
 }
