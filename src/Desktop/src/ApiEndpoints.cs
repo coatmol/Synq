@@ -610,8 +610,7 @@ public static class ApiEndpoints
                             foreach (var c in history.Commits)
                                 allCommits.Add(new
                                 {
-                                    c.CommitId, c.ContentHash, c.ParentId, c.Timestamp, c.AuthorName, c.Message, c.IsDeleted,
-                                    fileName
+                                    commitId = c.CommitId, contentHash = c.ContentHash, parentId = c.ParentId, timestamp = c.Timestamp, authorName = c.AuthorName, message = c.Message, isDeleted = c.IsDeleted, fileName
                                 });
                     }
                 }
@@ -631,8 +630,7 @@ public static class ApiEndpoints
                             foreach (var c in history.Commits)
                                 allCommits.Add(new
                                 {
-                                    c.CommitId, c.ContentHash, c.ParentId, c.Timestamp, c.AuthorName, c.Message, c.IsDeleted,
-                                    fileName = fName
+                                    commitId = c.CommitId, contentHash = c.ContentHash, parentId = c.ParentId, timestamp = c.Timestamp, authorName = c.AuthorName, message = c.Message, isDeleted = c.IsDeleted, fileName = fName
                                 });
                     }
                 }
