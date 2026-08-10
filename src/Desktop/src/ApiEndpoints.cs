@@ -72,7 +72,7 @@ public static class ApiEndpoints
             return Results.NotFound();
         });
 
-        app.MapPost("/api/files/update", async (HttpRequest req, WorkspaceState state, DocumentManager docManager, VersionControlManager vc, SyncManager sync) =>
+        app.MapPost("/api/files/update", async (HttpRequest req, WorkspaceState state, DocumentManager docManager, VersionControlManager vc, SyncManager sync, IHubContext<DocumentHub> hubContext) =>
         {
             using var reader = new StreamReader(req.Body);
             var body = await reader.ReadToEndAsync();
@@ -93,6 +93,7 @@ public static class ApiEndpoints
             if (isDoc) await vc.CommitFileAsync(filename, state.Settings.Username);
             
             sync.InitializeLocalFolder();
+            await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, content);
             return Results.Ok();
         });
 
@@ -136,6 +137,7 @@ public static class ApiEndpoints
                 if (isSynqHistory && isCommitsJson)
                 {
                     var uuid = filename.Split(new[] { '/', '\\' })[2];
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return Results.BadRequest();
                     await vc.MergeCommitsJsonAsync(uuid, content!);
                     sync.InitializeLocalFolder();
                     return Results.Ok();
@@ -224,7 +226,11 @@ public static class ApiEndpoints
             if (filePath == null) return Results.BadRequest();
 
             var vc = httpContext.RequestServices.GetService<VersionControlManager>();
-            if (vc != null) await vc.CommitDeletionAsync(relativeName, state.Settings.Username);
+            if (vc != null)
+            {
+                await vc.CommitFileAsync(relativeName, state.Settings.Username);
+                await vc.CommitDeletionAsync(relativeName, state.Settings.Username);
+            }
 
             if (File.Exists(filePath)) File.Delete(filePath);
             sync.InitializeLocalFolder();
@@ -576,7 +582,11 @@ public static class ApiEndpoints
                             JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile));
                         if (history != null)
                             foreach (var c in history.Commits)
-                                allCommits.Add(new { c.CommitId, c.ParentId, c.Timestamp, c.AuthorName, fileName });
+                                allCommits.Add(new
+                                {
+                                    c.CommitId, c.ParentId, c.Timestamp, c.AuthorName, c.Message, c.IsDeleted,
+                                    fileName
+                                });
                     }
                 }
             }
@@ -615,6 +625,9 @@ public static class ApiEndpoints
 
             var index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile));
             if (index == null || !index.TryGetValue(fileName, out var uuid)) return Results.NotFound();
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(commitId, "^(deleted-[0-9a-f]{32}|[0-9a-f]{64})$"))
+                return Results.BadRequest();
 
             var objectFile = Path.Combine(dotSynq, "history", uuid, "objects", $"{commitId}.bin");
             if (!File.Exists(objectFile)) return Results.NotFound();

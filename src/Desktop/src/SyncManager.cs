@@ -313,6 +313,7 @@ public class SyncManager
         if (isSynqHistory && isCommitsJson)
         {
             var uuid = relativePath.Split(new[] { '/', '\\' })[2];
+            if (!System.Text.RegularExpressions.Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return;
             await _vc.MergeCommitsJsonAsync(uuid, content);
             return;
         }

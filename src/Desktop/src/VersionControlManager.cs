@@ -170,6 +170,7 @@ public class VersionControlManager
     public async Task MergeCommitsJsonAsync(string uuid, string remoteCommitsJsonContent)
     {
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return;
 
         var commitsFile = Path.Combine(_state.CurrentFolder, ".synq", "history", uuid, "commits.json");
         CommitHistory localHistory = new();
