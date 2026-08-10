@@ -428,6 +428,18 @@ internal class Program
                         }
 
                         break;
+                    case "openNativeAbsolute":
+                        var absPathToOpen = msg.RootElement.GetProperty("path").GetString();
+                        if (!string.IsNullOrEmpty(absPathToOpen) && Directory.Exists(absPathToOpen) && OperatingSystem.IsWindows())
+                        {
+                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                            {
+                                FileName = "explorer.exe",
+                                Arguments = $"\"{absPathToOpen}\"",
+                                UseShellExecute = true
+                            });
+                        }
+                        break;
                     case "connectPeer":
                         var ip = msg.RootElement.GetProperty("ip").GetString();
                         var port = msg.RootElement.GetProperty("port").GetInt32();

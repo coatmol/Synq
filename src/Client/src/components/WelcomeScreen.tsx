@@ -3,7 +3,7 @@ import {useState, useEffect} from "react";
 import {toast} from "sonner";
 import {api} from "../api";
 import {ConnectModal} from "./ConnectModal";
-import {ArrowRight, MoreVertical, Minus, Square, X, Trash2} from "lucide-react";
+import {ArrowRight, Minus, Square, X, Trash2, ExternalLink} from "lucide-react";
 import {Dropdown} from "@heroui/react";
 import {UserAvatar} from "./UserAvatar";
 
@@ -18,6 +18,7 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
   const isNativeFrame = os === 'linux';
 
   const [showPeers, setShowPeers] = useState(false);
+  const [contextMenuFolder, setContextMenuFolder] = useState<string | null>(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [peers, setPeers] = useState<any[]>([]);
   const [recentFolders, setRecentFolders] = useState<string[]>([]);
@@ -116,6 +117,12 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
     }
   };
 
+  const handleOpenNativeAbsolute = (path: string) => {
+    if (typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage) {
+      (window as any).external.sendMessage(JSON.stringify({action: "openNativeAbsolute", path}));
+    }
+  };
+
   return (
     <div
       className="flex flex-col-reverse md:flex-row w-full h-screen bg-[#18181b] text-zinc-300 overflow-hidden font-sans">
@@ -141,39 +148,49 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
             recentFolders.map((folder, i) => {
               const folderName = folder.split(/[\\/]/).pop() || folder;
               return (
-                <div
-                  key={i}
-                  onClick={() => handleOpenRecent(folder)}
-                  className="group flex items-start justify-between px-4 py-3 cursor-pointer hover:bg-zinc-800/40 transition-colors mx-2 rounded-md"
-                >
-                  <div className="flex flex-col overflow-hidden pr-2">
-                    <span className="text-sm font-medium text-zinc-200 truncate">{folderName}</span>
-                    <span className="text-[11px] text-zinc-500 truncate mt-1">{folder}</span>
-                  </div>
-                  <Dropdown>
-                    <Dropdown.Trigger>
-                      <button onClick={(e) => e.stopPropagation()}
-                              className="text-zinc-500 opacity-0 group-hover:opacity-100 hover:text-zinc-300 transition-all p-1 rounded hover:bg-zinc-700/50 mt-0.5">
-                        <MoreVertical className="w-4 h-4"/>
-                      </button>
-                    </Dropdown.Trigger>
-                    <Dropdown.Popover
-                      className="bg-[#18181b] border border-zinc-800/80 shadow-2xl rounded-xl min-w-[240px] p-1.5 overflow-hidden">
-                      <Dropdown.Menu aria-label="Recent Options" className="outline-none flex flex-col gap-0.5">
-                        <Dropdown.Item key="remove" textValue="Remove from Recents" onPress={() => handleRemoveRecent(folder)}
-                                       className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-red-400 data-[focused=true]:bg-red-500/10 data-[focused=true]:text-red-400 transition-colors">
-                          <div className="flex h-5 items-center justify-center shrink-0">
-                            <Trash2 size={16} className="text-red-400" />
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[13px] font-medium truncate">Remove from Recents</span>
-                            <span className="text-[11px] text-red-400/70 truncate">Clear folder from history</span>
-                          </div>
-                        </Dropdown.Item>
-                      </Dropdown.Menu>
-                    </Dropdown.Popover>
-                  </Dropdown>
-                </div>
+                <Dropdown key={i} isOpen={contextMenuFolder === folder} onOpenChange={(isOpen) => !isOpen && setContextMenuFolder(null)}>
+                  <Dropdown.Trigger>
+                    <div
+                      onClick={() => handleOpenRecent(folder)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setContextMenuFolder(folder);
+                      }}
+                      className="group flex w-[calc(100%-1rem)] items-start justify-start text-left px-4 py-3 cursor-pointer hover:bg-zinc-800/40 transition-colors mx-2 rounded-md"
+                    >
+                      <div className="flex flex-col overflow-hidden pr-2 w-full">
+                        <span className="text-sm font-medium text-zinc-200 truncate w-full">{folderName}</span>
+                        <span className="text-[11px] text-zinc-500 truncate mt-1 w-full">{folder}</span>
+                      </div>
+                    </div>
+                  </Dropdown.Trigger>
+                  <Dropdown.Popover
+                    className="bg-[#18181b] border border-zinc-800/80 shadow-2xl rounded-xl min-w-[240px] p-1.5 overflow-hidden">
+                    <Dropdown.Menu aria-label="Recent Options" className="outline-none flex flex-col gap-0.5">
+                      <Dropdown.Item key="openNative" textValue="Open in Explorer" onPress={() => handleOpenNativeAbsolute(folder)}
+                                     className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-zinc-300 data-[focused=true]:bg-zinc-800/80 data-[focused=true]:text-zinc-100 transition-colors">
+                        <div className="flex h-5 items-center justify-center shrink-0">
+                          <ExternalLink size={16} className="text-zinc-400" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[13px] font-medium truncate">Open in Explorer</span>
+                          <span className="text-[11px] text-zinc-500 truncate">Reveal in your native OS</span>
+                        </div>
+                      </Dropdown.Item>
+                      <Dropdown.Item key="remove" textValue="Remove from Recents" onPress={() => handleRemoveRecent(folder)}
+                                     className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-red-400 data-[focused=true]:bg-red-500/10 data-[focused=true]:text-red-400 transition-colors">
+                        <div className="flex h-5 items-center justify-center shrink-0">
+                          <Trash2 size={16} className="text-red-400" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[13px] font-medium truncate">Remove from Recents</span>
+                          <span className="text-[11px] text-red-400/70 truncate">Clear folder from history</span>
+                        </div>
+                      </Dropdown.Item>
+                    </Dropdown.Menu>
+                  </Dropdown.Popover>
+                </Dropdown>
               )
             })
           ) : (
