@@ -260,9 +260,9 @@ export function FileTree() {
               <div className="flex items-center gap-2 truncate">
                 {node.type === NodeType.Folder ? (
                   isExpanded ? <FolderOpen
-                      className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-400'}`}/> :
+                      className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500'}`}/> :
                     <Folder
-                      className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500 group-hover/item:text-emerald-400'}`}/>
+                      className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-zinc-600 group-hover/item:text-zinc-400'}`}/>
                 ) : node.type === NodeType.File ? (
                   <FileText
                     className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-zinc-600 group-hover/item:text-zinc-400'}`}/>

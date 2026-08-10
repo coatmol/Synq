@@ -2,15 +2,45 @@ import {useEffect, useState} from 'react';
 import {api} from '../api';
 import {useDocumentStore} from '../hooks/useDocumentHub';
 import {UserAvatar} from './UserAvatar';
-import {GitGraph, RefreshCw} from 'lucide-react';
+import {GitGraph, RefreshCw, Copy, RotateCcw, Hash} from 'lucide-react';
 
 export function VersionHistory() {
   const [commits, setCommits] = useState<any[]>([]);
   const {setActiveFile, activeFile} = useDocumentStore();
 
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, commit: any } | null>(null);
+
   useEffect(() => {
     fetchCommits();
+    const handleGlobalClick = () => setContextMenu(null);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
+
+  const handleContextMenu = (e: React.MouseEvent, commit: any) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, commit });
+  };
+
+  const handleCopyContents = async (commit: any) => {
+    const content = await api.getCommitContent(commit.fileName, commit.commitId);
+    if (content !== null) {
+      navigator.clipboard.writeText(content);
+    }
+  };
+
+  const handleRestore = async (commit: any) => {
+    const content = await api.getCommitContent(commit.fileName, commit.commitId);
+    if (content !== null) {
+      await api.updateFile(commit.fileName, content);
+      setActiveFile(commit.fileName);
+      await fetchCommits(); // Refresh to show new commit
+    }
+  };
+  
+  const handleCopyId = (commit: any) => {
+    navigator.clipboard.writeText(commit.commitId);
+  };
 
   const fetchCommits = async () => {
     const data = await api.getCommits();
@@ -57,6 +87,7 @@ export function VersionHistory() {
             <div
               key={`${commit.fileName}-${commit.commitId}`}
               onClick={() => openDiff(commit.fileName, commit.commitId, commit.parentId)}
+              onContextMenu={(e) => handleContextMenu(e, commit)}
               className={`flex flex-col p-2 rounded-lg cursor-pointer transition-all ${
                 isSelected
                   ? 'bg-zinc-800 border-l-2 border-emerald-500'
@@ -91,6 +122,40 @@ export function VersionHistory() {
           </div>
         )}
       </div>
+
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-zinc-900 border border-zinc-700/50 rounded-lg shadow-xl py-1 min-w-[160px] text-[13px] text-zinc-300 backdrop-blur-xl"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => { handleCopyContents(contextMenu.commit); setContextMenu(null); }}
+            className="w-full text-left px-3 py-1.5 hover:bg-zinc-800 flex items-center gap-2 transition-colors group"
+          >
+            <Copy size={14} className="text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+            <span>Copy File Contents</span>
+          </button>
+
+          <button
+            onClick={() => { handleCopyId(contextMenu.commit); setContextMenu(null); }}
+            className="w-full text-left px-3 py-1.5 hover:bg-zinc-800 flex items-center gap-2 transition-colors group"
+          >
+            <Hash size={14} className="text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+            <span>Copy Commit ID</span>
+          </button>
+          
+          <div className="h-px bg-zinc-800/80 my-1 mx-2" />
+          
+          <button
+            onClick={() => { handleRestore(contextMenu.commit); setContextMenu(null); }}
+            className="w-full text-left px-3 py-1.5 hover:bg-zinc-800 flex items-center gap-2 transition-colors group"
+          >
+            <RotateCcw size={14} className="text-emerald-500 group-hover:text-emerald-400 transition-colors" />
+            <span className="text-emerald-400 group-hover:text-emerald-300 transition-colors">Restore This Version</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

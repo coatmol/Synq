@@ -72,6 +72,30 @@ public static class ApiEndpoints
             return Results.NotFound();
         });
 
+        app.MapPost("/api/files/update", async (HttpRequest req, WorkspaceState state, DocumentManager docManager, VersionControlManager vc, SyncManager sync) =>
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonDocument.Parse(body);
+            var filename = data.RootElement.GetProperty("filename").GetString();
+            var content = data.RootElement.GetProperty("content").GetString();
+            
+            var path = PathUtils.GetSafePath(state.CurrentFolder, filename!);
+            if (path == null) return Results.BadRequest();
+            
+            var isDoc = filename!.EndsWith(".md") || filename.EndsWith(".excalidraw");
+            if (File.Exists(path) && isDoc) await vc.CommitFileAsync(filename, "Auto-Save (Before Restore)");
+            
+            await File.WriteAllTextAsync(path, content!);
+            var doc = docManager.GetOrCreateDocument(filename!);
+            doc.OverwriteFromContent(content!);
+            
+            if (isDoc) await vc.CommitFileAsync(filename, state.Settings.Username);
+            
+            sync.InitializeLocalFolder();
+            return Results.Ok();
+        });
+
         app.MapPost("/api/rawfile",
             async (HttpRequest req, WorkspaceState state, DocumentManager docManager, SyncManager sync,
                 VersionControlManager vc) =>

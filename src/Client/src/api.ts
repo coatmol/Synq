@@ -67,6 +67,20 @@ export const api = {
     }
   },
 
+  updateFile: async (filename: string, content: string): Promise<boolean> => {
+    try {
+      const response = await fetchWithAuth(`${BASE_URL}/api/files/update`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({filename, content})
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to update file", e);
+      return false;
+    }
+  },
+
   renameItem: async (oldPath: string, newPath: string): Promise<boolean> => {
     try {
       const response = await fetchWithAuth(`${BASE_URL}/api/files/rename`, {
