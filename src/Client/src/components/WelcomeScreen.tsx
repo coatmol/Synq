@@ -195,19 +195,19 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
               <button onClick={() => {
                 if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({action: "minimize"}));
               }}
-                      className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+                      className="w-8 mt-1 aspect-square rounded-xl flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
                 <Minus className="w-3.5 h-3.5"/>
               </button>
               <button onClick={() => {
                 if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({action: "maximize"}));
               }}
-                      className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+                      className="w-8 mt-1 aspect-square rounded-xl flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
                 <Square className="w-3 h-3"/>
               </button>
               <button onClick={() => {
                 if (typeof window !== 'undefined' && (window as any).external) (window as any).external.sendMessage(JSON.stringify({action: "close"}));
               }}
-                      className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-red-500 hover:text-white transition-colors">
+                      className="w-8 mt-1 mr-2 aspect-square rounded-xl flex items-center justify-center text-zinc-400 hover:bg-red-500 hover:text-white transition-colors">
                 <X className="w-3.5 h-3.5"/>
               </button>
             </div>
@@ -304,7 +304,7 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
                           className={`flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800 transition-colors cursor-pointer group ${peer.status === 'offline' ? 'opacity-50 grayscale' : ''}`}
                         >
                           <div className="relative">
-                            <UserAvatar size="md" name={peer.name || peer.id} />
+                            <UserAvatar size="md" name={peer.name || peer.id}/>
                             {peer.status === 'online' && (
                               <span
                                 className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#1e1e1e]"/>

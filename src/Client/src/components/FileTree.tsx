@@ -1,7 +1,7 @@
 import React, {useState, useEffect} from 'react';
 import {api} from '../api';
 import {useDocumentStore} from '../hooks/useDocumentHub';
-import {Dropdown, Modal, Button, Input} from "@heroui/react";
+import {Dropdown, Modal, Button, Input, Tooltip} from "@heroui/react";
 import {Folder, FolderOpen, FileText, Plus, FolderPlus, NotebookIcon, LineSquiggle} from 'lucide-react';
 
 const NodeType = {
@@ -315,36 +315,57 @@ export function FileTree() {
           {notebookName}
         </p>
         <div className="flex items-center gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCreateFile();
-            }}
-            className="text-zinc-500 hover:text-emerald-400 transition-colors p-1 cursor-pointer"
-            title="New File"
-          >
-            <Plus className="w-4 h-4"/>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCreateSketch();
-            }}
-            className="text-zinc-500 hover:text-emerald-400 transition-colors p-1 cursor-pointer"
-            title="New Sketch"
-          >
-            <LineSquiggle className="w-4 h-4"/>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCreateFolder();
-            }}
-            className="text-zinc-500 hover:text-emerald-400 transition-colors p-1 cursor-pointer"
-            title="New Folder"
-          >
-            <FolderPlus className="w-4 h-4"/>
-          </button>
+          <Tooltip delay={500}>
+            <Tooltip.Trigger>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCreateFile();
+                }}
+                className="text-zinc-500 hover:text-emerald-400 transition-colors p-1 cursor-pointer"
+              >
+                <Plus className="w-4 h-4"/>
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Content placement="top" showArrow={true}
+                             className="dark bg-zinc-800 text-zinc-100 text-[11px] px-2 py-1 rounded shadow-xl">
+              New File
+            </Tooltip.Content>
+          </Tooltip>
+          <Tooltip delay={500}>
+            <Tooltip.Trigger>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCreateSketch();
+                }}
+                className="text-zinc-500 hover:text-emerald-400 transition-colors p-1 cursor-pointer"
+              >
+                <LineSquiggle className="w-4 h-4"/>
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Content placement="top" showArrow={true}
+                             className="dark bg-zinc-800 text-zinc-100 text-[11px] px-2 py-1 rounded shadow-xl">
+              New Sketch
+            </Tooltip.Content>
+          </Tooltip>
+          <Tooltip delay={500}>
+            <Tooltip.Trigger>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCreateFolder();
+                }}
+                className="text-zinc-500 hover:text-emerald-400 transition-colors p-1 cursor-pointer"
+              >
+                <FolderPlus className="w-4 h-4"/>
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Content placement="top" showArrow={true}
+                             className="dark bg-zinc-800 text-zinc-100 text-[11px] px-2 py-1 rounded shadow-xl">
+              New Folder
+            </Tooltip.Content>
+          </Tooltip>
         </div>
       </div>
 

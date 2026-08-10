@@ -3,6 +3,7 @@ import {api} from '../api';
 import {useDocumentStore} from '../hooks/useDocumentHub';
 import {UserAvatar} from './UserAvatar';
 import {GitGraph, RefreshCw, Copy, RotateCcw, Hash} from 'lucide-react';
+import {Tooltip} from "@heroui/react";
 
 export function VersionHistory() {
   const [commits, setCommits] = useState<any[]>([]);
@@ -19,7 +20,7 @@ export function VersionHistory() {
 
   const handleContextMenu = (e: React.MouseEvent, commit: any) => {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, commit });
+    setContextMenu({x: e.clientX, y: e.clientY, commit});
   };
 
   const handleCopyContents = async (commit: any) => {
@@ -37,7 +38,7 @@ export function VersionHistory() {
       await fetchCommits(); // Refresh to show new commit
     }
   };
-  
+
   const handleCopyId = (commit: any) => {
     navigator.clipboard.writeText(commit.commitId);
   };
@@ -54,26 +55,34 @@ export function VersionHistory() {
 
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#18181b]">
-      <div className="p-3 text-xs font-semibold text-zinc-500 tracking-wider uppercase mb-1 flex items-center justify-between">
+      <div
+        className="p-3 text-xs font-semibold text-zinc-500 tracking-wider uppercase mb-1 flex items-center justify-between">
         <div className={"border-none min-w-0 h-7 flex items-center text-xs font-bold text-zinc-400 uppercase"}>
           <span className="flex items-center text-zinc-400">
-            <GitGraph className="w-5 h-5 mr-1.5" />
+            <GitGraph className="w-5 h-5 mr-1.5"/>
             Version History
           </span>
         </div>
-        <button 
-          onClick={fetchCommits} 
-          className="text-zinc-500 hover:text-emerald-400 transition-colors p-1 cursor-pointer"
-          title="Refresh History"
-        >
-          <RefreshCw size={14} />
-        </button>
+        <Tooltip delay={500}>
+          <Tooltip.Trigger>
+            <button
+              onClick={fetchCommits}
+              className="text-zinc-500 hover:text-emerald-400 transition-colors p-1 cursor-pointer"
+            >
+              <RefreshCw size={14}/>
+            </button>
+          </Tooltip.Trigger>
+          <Tooltip.Content placement="top" showArrow={true}
+                           className="dark bg-zinc-800 text-zinc-100 text-[11px] px-2 py-1 rounded shadow-xl">
+            Refresh History
+          </Tooltip.Content>
+        </Tooltip>
       </div>
       <div className="flex flex-col gap-1 px-2 pb-4">
         {commits.map((commit) => {
           const isSelected = activeFile?.startsWith(`diff:${commit.fileName}:${commit.commitId}`);
           const date = new Date(commit.timestamp);
-          const month = date.toLocaleString('en-US', { month: 'short' });
+          const month = date.toLocaleString('en-US', {month: 'short'});
           const day = date.getDate().toString().padStart(2, '0');
           const year = date.getFullYear();
           let hours = date.getHours();
@@ -95,13 +104,23 @@ export function VersionHistory() {
               }`}
             >
               <div className="flex gap-2.5 items-start">
-                <div className={`shrink-0 mt-0.5 rounded-full ${isSelected ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-[#18181b]' : ''}`}>
-                  <UserAvatar name={commit.authorName || 'ME'} size="md" />
+                <div
+                  className={`shrink-0 mt-0.5 rounded-full ${isSelected ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-[#18181b]' : ''}`}>
+                  <UserAvatar name={commit.authorName || 'ME'} size="md"/>
                 </div>
                 <div className="flex flex-col min-w-0 flex-1">
-                  <span className={`text-[12px] font-medium truncate ${isSelected ? 'text-zinc-100' : 'text-zinc-300'}`} title={commit.message || (commit.isDeleted ? `Deleted ${commit.fileName}` : `Edited ${commit.fileName}`)}>
-                    {commit.message || (commit.isDeleted ? `Deleted ${commit.fileName.split('/').pop()}` : `Edited ${commit.fileName.split('/').pop()}`)}
-                  </span>
+                  <Tooltip delay={500}>
+                    <Tooltip.Trigger>
+                      <span
+                        className={`text-[12px] font-medium truncate ${isSelected ? 'text-zinc-100' : 'text-zinc-300'}`}>
+                        {commit.message || (commit.isDeleted ? `Deleted ${commit.fileName.split('/').pop()}` : `Edited ${commit.fileName.split('/').pop()}`)}
+                      </span>
+                    </Tooltip.Trigger>
+                    <Tooltip.Content placement="top" showArrow={true}
+                                     className="dark bg-zinc-800 text-zinc-100 text-[11px] px-2 py-1 rounded shadow-xl">
+                      {commit.message || (commit.isDeleted ? `Deleted ${commit.fileName}` : `Edited ${commit.fileName}`)}
+                    </Tooltip.Content>
+                  </Tooltip>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className={`text-[10px] ${isSelected ? 'text-zinc-300' : 'text-zinc-500'}`}>
                       {commit.authorName}
@@ -126,33 +145,43 @@ export function VersionHistory() {
       {contextMenu && (
         <div
           className="fixed z-50 bg-zinc-900 border border-zinc-700/50 rounded-lg shadow-xl py-1 min-w-[160px] text-[13px] text-zinc-300 backdrop-blur-xl"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
+          style={{top: contextMenu.y, left: contextMenu.x}}
           onClick={(e) => e.stopPropagation()}
         >
           <button
-            onClick={() => { handleCopyContents(contextMenu.commit); setContextMenu(null); }}
+            onClick={() => {
+              handleCopyContents(contextMenu.commit);
+              setContextMenu(null);
+            }}
             className="w-full text-left px-3 py-1.5 hover:bg-zinc-800 flex items-center gap-2 transition-colors group"
           >
-            <Copy size={14} className="text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+            <Copy size={14} className="text-zinc-500 group-hover:text-zinc-300 transition-colors"/>
             <span>Copy File Contents</span>
           </button>
 
           <button
-            onClick={() => { handleCopyId(contextMenu.commit); setContextMenu(null); }}
+            onClick={() => {
+              handleCopyId(contextMenu.commit);
+              setContextMenu(null);
+            }}
             className="w-full text-left px-3 py-1.5 hover:bg-zinc-800 flex items-center gap-2 transition-colors group"
           >
-            <Hash size={14} className="text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+            <Hash size={14} className="text-zinc-500 group-hover:text-zinc-300 transition-colors"/>
             <span>Copy Commit ID</span>
           </button>
-          
-          <div className="h-px bg-zinc-800/80 my-1 mx-2" />
-          
+
+          <div className="h-px bg-zinc-800/80 my-1 mx-2"/>
+
           <button
-            onClick={() => { handleRestore(contextMenu.commit); setContextMenu(null); }}
+            onClick={() => {
+              handleRestore(contextMenu.commit);
+              setContextMenu(null);
+            }}
             className="w-full text-left px-3 py-1.5 hover:bg-zinc-800 flex items-center gap-2 transition-colors group"
           >
-            <RotateCcw size={14} className="text-emerald-500 group-hover:text-emerald-400 transition-colors" />
-            <span className="text-emerald-400 group-hover:text-emerald-300 transition-colors">Restore This Version</span>
+            <RotateCcw size={14} className="text-emerald-500 group-hover:text-emerald-400 transition-colors"/>
+            <span
+              className="text-emerald-400 group-hover:text-emerald-300 transition-colors">Restore This Version</span>
           </button>
         </div>
       )}

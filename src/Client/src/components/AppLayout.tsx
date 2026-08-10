@@ -111,17 +111,17 @@ export function AppLayout({children}: AppLayoutProps) {
               </button>
             </div>
             <div className="flex bg-[#202020] rounded p-1 mx-2 mt-2 shrink-0">
-              <button 
+              <button
                 onClick={() => setSidebarTab('files')}
                 className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-[11px] rounded transition-colors ${sidebarTab === 'files' ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
               >
-                <FolderTree className="w-3.5 h-3.5" /> Files
+                <FolderTree className="w-3.5 h-3.5"/> Files
               </button>
-              <button 
+              <button
                 onClick={() => setSidebarTab('history')}
                 className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-[11px] rounded transition-colors ${sidebarTab === 'history' ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
               >
-                <History className="w-3.5 h-3.5" /> History
+                <History className="w-3.5 h-3.5"/> History
               </button>
             </div>
             <div className="flex-1 overflow-hidden mt-2" onClick={() => setShowMobileMenu(false)}>
@@ -143,20 +143,34 @@ export function AppLayout({children}: AppLayoutProps) {
               <div className="flex items-center justify-center w-full mb-2">
                 <img src="/Synq3.png" alt="Logo" className="w-6 h-6"/>
               </div>
-              <button
-                onClick={() => setSidebarTab('files')}
-                title="Files"
-                className={`w-9 h-9 mx-auto rounded-xl transition-all flex items-center justify-center ${sidebarTab === 'files' ? 'text-zinc-100 bg-[#27272a] shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-[#202020]'}`}
-              >
-                <FolderTree className="w-5 h-5" strokeWidth={1.5}/>
-              </button>
-              <button
-                onClick={() => setSidebarTab('history')}
-                title="Version History"
-                className={`w-9 h-9 mx-auto rounded-xl transition-all flex items-center justify-center ${sidebarTab === 'history' ? 'text-zinc-100 bg-[#27272a] shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-[#202020]'}`}
-              >
-                <History className="w-5 h-5" strokeWidth={1.5}/>
-              </button>
+              <Tooltip delay={500}>
+                <Tooltip.Trigger>
+                  <button
+                    onClick={() => setSidebarTab('files')}
+                    className={`w-9 h-9 mx-auto rounded-xl transition-all flex items-center justify-center ${sidebarTab === 'files' ? 'text-zinc-100 bg-[#27272a] shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-[#202020]'}`}
+                  >
+                    <FolderTree className="w-5 h-5" strokeWidth={1.5}/>
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Content placement="right" showArrow={true}
+                                 className="dark bg-zinc-800 text-zinc-100 text-[11px] px-2 py-1 rounded shadow-xl">
+                  Files
+                </Tooltip.Content>
+              </Tooltip>
+              <Tooltip delay={500}>
+                <Tooltip.Trigger>
+                  <button
+                    onClick={() => setSidebarTab('history')}
+                    className={`w-9 h-9 mx-auto rounded-xl transition-all flex items-center justify-center ${sidebarTab === 'history' ? 'text-zinc-100 bg-[#27272a] shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-[#202020]'}`}
+                  >
+                    <History className="w-5 h-5" strokeWidth={1.5}/>
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Content placement="right" showArrow={true}
+                                 className="dark bg-zinc-800 text-zinc-100 text-[11px] px-2 py-1 rounded shadow-xl">
+                  Version History
+                </Tooltip.Content>
+              </Tooltip>
             </div>
           </div>
         )}

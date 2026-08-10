@@ -55,7 +55,7 @@ export function FileMenu() {
   );
 }
 
-export function WindowControls({isNativeFrame}: {isNativeFrame?: boolean}) {
+export function WindowControls({isNativeFrame}: { isNativeFrame?: boolean }) {
   const isDesktop = typeof window !== 'undefined' && (window as any).external && (window as any).external.sendMessage;
 
   const sendMessage = (action: string) => {
@@ -72,15 +72,15 @@ export function WindowControls({isNativeFrame}: {isNativeFrame?: boolean}) {
       {isDesktop && !isNativeFrame && (
         <div className="flex items-center h-full gap-0 ml-1">
           <button onClick={() => sendMessage("minimize")}
-                  className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
-            <Minus className="w-[14px] h-[14px]"/>
+                  className="w-8 mt-1 aspect-square rounded-xl flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+            <Minus className="w-3.5 h-3.5"/>
           </button>
           <button onClick={() => sendMessage("maximize")}
-                  className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+                  className="w-8 mt-1 aspect-square rounded-xl flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
             <Square className="w-3 h-3"/>
           </button>
           <button onClick={() => sendMessage("close")}
-                  className="w-10 h-full flex items-center justify-center text-zinc-400 hover:bg-red-500 hover:text-white transition-colors">
+                  className="w-8 mt-1 mr-2 aspect-square rounded-xl flex items-center justify-center text-zinc-400 hover:bg-red-500 hover:text-white transition-colors">
             <X className="w-4 h-4"/>
           </button>
         </div>
