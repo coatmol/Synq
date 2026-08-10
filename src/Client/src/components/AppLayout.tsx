@@ -23,7 +23,6 @@ export function AppLayout({children}: AppLayoutProps) {
   const [peers, setPeers] = useState<any[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<'files' | 'history'>('files');
 
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const os = searchParams.get('os') || 'windows';
@@ -43,7 +42,9 @@ export function AppLayout({children}: AppLayoutProps) {
     deletedOpenFiles,
     setDeletedOpenFiles,
     isConnected,
-    documentStats
+    documentStats,
+    sidebarTab,
+    setSidebarTab
   } = useDocumentStore();
   const {fetchDocument} = useDocumentHub();
 

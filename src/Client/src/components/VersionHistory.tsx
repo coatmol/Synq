@@ -3,25 +3,22 @@ import {api} from '../api';
 import {useDocumentStore} from '../hooks/useDocumentHub';
 import {UserAvatar} from './UserAvatar';
 import {GitGraph, RefreshCw, Copy, RotateCcw, Hash} from 'lucide-react';
-import {Tooltip} from "@heroui/react";
+import {Autocomplete, ListBox, SearchField, EmptyState, Tooltip, useFilter, Dropdown, Header, Separator} from "@heroui/react";
 
 export function VersionHistory() {
   const [commits, setCommits] = useState<any[]>([]);
-  const {setActiveFile, activeFile} = useDocumentStore();
+  const {setActiveFile, activeFile, versionHistoryFilter, setVersionHistoryFilter} = useDocumentStore();
+  const searchQuery = versionHistoryFilter;
+  const setSearchQuery = setVersionHistoryFilter;
 
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, commit: any } | null>(null);
+  const [contextMenuCommitId, setContextMenuCommitId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCommits();
-    const handleGlobalClick = () => setContextMenu(null);
+    const handleGlobalClick = () => setContextMenuCommitId(null);
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
-
-  const handleContextMenu = (e: React.MouseEvent, commit: any) => {
-    e.preventDefault();
-    setContextMenu({x: e.clientX, y: e.clientY, commit});
-  };
 
   const handleCopyContents = async (commit: any) => {
     const content = await api.getCommitContent(commit.fileName, commit.commitId);
@@ -53,6 +50,13 @@ export function VersionHistory() {
     setActiveFile(diffUri);
   };
 
+  const {contains} = useFilter({sensitivity: "base"});
+  const uniqueFiles = Array.from(new Set(commits.map(c => c.fileName as string)));
+
+  const filteredCommits = commits.filter(commit => 
+    commit.fileName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#18181b]">
       <div
@@ -79,7 +83,42 @@ export function VersionHistory() {
         </Tooltip>
       </div>
       <div className="flex flex-col gap-1 px-2 pb-4">
-        {commits.map((commit) => {
+        <div className="mb-2">
+          <Autocomplete
+            className="w-full"
+            placeholder="Search by file name..."
+            selectionMode="single"
+            value={searchQuery}
+            onChange={(key) => setSearchQuery(key ? key.toString() : "")}
+            variant="secondary"
+          >
+            <Autocomplete.Trigger className="h-8 min-h-8 bg-[#27272a] hover:bg-[#27272a]/80 border-none group-data-[focus=true]:bg-[#27272a]">
+              <Autocomplete.Value className="text-[12px] text-zinc-100 placeholder:text-zinc-500" />
+              <Autocomplete.ClearButton />
+              <Autocomplete.Indicator />
+            </Autocomplete.Trigger>
+            <Autocomplete.Popover placement="bottom" className="dark bg-[#18181b] border border-zinc-800 rounded-md shadow-xl w-[300px]">
+              <Autocomplete.Filter filter={contains}>
+                <SearchField autoFocus name="search" variant="secondary" className="mb-2 mt-1 px-1">
+                  <SearchField.Group className="bg-zinc-800/50 border border-zinc-700/50 h-8">
+                    <SearchField.SearchIcon className="w-3.5 h-3.5 text-zinc-400" />
+                    <SearchField.Input placeholder="Search files..." className="text-xs text-zinc-200 placeholder:text-zinc-500" />
+                    <SearchField.ClearButton />
+                  </SearchField.Group>
+                </SearchField>
+                <ListBox items={uniqueFiles.map(f => ({id: f, name: f}))} renderEmptyState={() => <EmptyState>No files found</EmptyState>}>
+                  {(item) => (
+                    <ListBox.Item key={item.id} id={item.id} textValue={item.name} className="text-zinc-300 text-xs data-[hover=true]:bg-zinc-800/50">
+                      {item.name}
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  )}
+                </ListBox>
+              </Autocomplete.Filter>
+            </Autocomplete.Popover>
+          </Autocomplete>
+        </div>
+        {filteredCommits.map((commit) => {
           const isSelected = activeFile?.startsWith(`diff:${commit.fileName}:${commit.commitId}`);
           const date = new Date(commit.timestamp);
           const month = date.toLocaleString('en-US', {month: 'short'});
@@ -93,98 +132,106 @@ export function VersionHistory() {
           const formattedDate = `${month} ${day}, ${year} ${hours}:${minutes} ${ampm}`;
 
           return (
-            <div
-              key={`${commit.fileName}-${commit.commitId}`}
-              onClick={() => openDiff(commit.fileName, commit.commitId, commit.parentId)}
-              onContextMenu={(e) => handleContextMenu(e, commit)}
-              className={`flex flex-col p-2 rounded-lg cursor-pointer transition-all ${
-                isSelected
-                  ? 'bg-zinc-800 border-l-2 border-emerald-500'
-                  : 'hover:bg-zinc-800/50 border-l-2 border-transparent'
-              }`}
-            >
-              <div className="flex gap-2.5 items-start">
+            <Dropdown isOpen={contextMenuCommitId === commit.commitId} onOpenChange={(isOpen) => !isOpen && setContextMenuCommitId(null)} key={`${commit.commitId}-${commit.fileName}`}>
+              <Dropdown.Trigger>
                 <div
-                  className={`shrink-0 mt-0.5 rounded-full ${isSelected ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-[#18181b]' : ''}`}>
-                  <UserAvatar name={commit.authorName || 'ME'} size="md"/>
-                </div>
-                <div className="flex flex-col min-w-0 flex-1">
-                  <Tooltip delay={500}>
-                    <Tooltip.Trigger>
-                      <span
-                        className={`text-[12px] font-medium truncate ${isSelected ? 'text-zinc-100' : 'text-zinc-300'}`}>
-                        {commit.message || (commit.isDeleted ? `Deleted ${commit.fileName.split('/').pop()}` : `Edited ${commit.fileName.split('/').pop()}`)}
-                      </span>
-                    </Tooltip.Trigger>
-                    <Tooltip.Content placement="top" showArrow={true}
-                                     className="dark bg-zinc-800 text-zinc-100 text-[11px] px-2 py-1 rounded shadow-xl">
-                      {commit.message || (commit.isDeleted ? `Deleted ${commit.fileName}` : `Edited ${commit.fileName}`)}
-                    </Tooltip.Content>
-                  </Tooltip>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className={`text-[10px] ${isSelected ? 'text-zinc-300' : 'text-zinc-500'}`}>
-                      {commit.authorName}
-                    </span>
-                    <span className="text-[10px] text-zinc-600">•</span>
-                    <span className={`text-[10px] truncate ${isSelected ? 'text-zinc-300' : 'text-zinc-500'}`}>
-                      {formattedDate}
-                    </span>
+                  onClick={() => openDiff(commit.fileName, commit.commitId, commit.parentId)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setContextMenuCommitId(commit.commitId);
+                  }}
+                  className={`flex flex-col p-2 rounded-lg cursor-pointer transition-all ${
+                    isSelected
+                      ? 'bg-zinc-800 border-l-2 border-emerald-500'
+                      : 'hover:bg-zinc-800/50 border-l-2 border-transparent'
+                  }`}
+                >
+                  <div className="flex gap-2.5 items-start">
+                    <div
+                      className={`shrink-0 mt-0.5 rounded-full ${isSelected ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-[#18181b]' : ''}`}>
+                      <UserAvatar name={commit.authorName || 'ME'} size="md"/>
+                    </div>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <Tooltip delay={500}>
+                        <Tooltip.Trigger>
+                          <span
+                            className={`text-[12px] font-medium truncate ${isSelected ? 'text-zinc-100' : 'text-zinc-300'}`}>
+                            {commit.message || (commit.isDeleted ? `Deleted ${commit.fileName.split('/').pop()}` : `Edited ${commit.fileName.split('/').pop()}`)}
+                          </span>
+                        </Tooltip.Trigger>
+                        <Tooltip.Content placement="top" showArrow={true}
+                                         className="dark bg-zinc-800 text-zinc-100 text-[11px] px-2 py-1 rounded shadow-xl">
+                          {commit.message || (commit.isDeleted ? `Deleted ${commit.fileName}` : `Edited ${commit.fileName}`)}
+                        </Tooltip.Content>
+                      </Tooltip>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className={`text-[10px] ${isSelected ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                          {commit.authorName}
+                        </span>
+                        <span className="text-[10px] text-zinc-600">•</span>
+                        <span className={`text-[10px] truncate ${isSelected ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                          {formattedDate}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </Dropdown.Trigger>
+              <Dropdown.Popover className="bg-[#18181b] border border-zinc-800/80 shadow-2xl rounded-xl min-w-[240px] p-1.5 overflow-hidden">
+                <Dropdown.Menu aria-label="Commit Actions" className="outline-none flex flex-col gap-0.5">
+                  <Dropdown.Section>
+                    <Header className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-1.5 select-none">Copy</Header>
+                    <Dropdown.Item id="copyContents" textValue="Copy File Contents" onPress={() => handleCopyContents(commit)}
+                                   className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-zinc-300 data-[focused=true]:bg-zinc-800/80 data-[focused=true]:text-zinc-100 transition-colors">
+                      <div className="flex h-5 items-center justify-center shrink-0">
+                        <Copy size={16} className="text-zinc-400" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[13px] font-medium truncate">Copy File Contents</span>
+                        <span className="text-[11px] text-zinc-500 truncate">Copy full content at this version</span>
+                      </div>
+                    </Dropdown.Item>
+                    <Dropdown.Item id="copyId" textValue="Copy Commit ID" onPress={() => handleCopyId(commit)}
+                                   className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-zinc-300 data-[focused=true]:bg-zinc-800/80 data-[focused=true]:text-zinc-100 transition-colors">
+                      <div className="flex h-5 items-center justify-center shrink-0">
+                        <Hash size={16} className="text-zinc-400" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[13px] font-medium truncate">Copy Commit ID</span>
+                        <span className="text-[11px] text-zinc-500 truncate">Copy the unique SHA hash</span>
+                      </div>
+                    </Dropdown.Item>
+                  </Dropdown.Section>
+                  
+                  <Separator className="bg-zinc-800/60 my-1 mx-2 h-px" />
+                  
+                  <Dropdown.Section>
+                    <Header className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-1.5 select-none">Restore</Header>
+                    <Dropdown.Item id="restore" textValue="Restore This Version" onPress={() => handleRestore(commit)}
+                                   className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-emerald-400 data-[focused=true]:bg-emerald-500/10 data-[focused=true]:text-emerald-400 transition-colors">
+                      <div className="flex h-5 items-center justify-center shrink-0">
+                        <RotateCcw size={16} className="text-emerald-400" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[13px] font-medium truncate">Restore This Version</span>
+                        <span className="text-[11px] text-emerald-400/70 truncate">Revert file to this exact state</span>
+                      </div>
+                    </Dropdown.Item>
+                  </Dropdown.Section>
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </Dropdown>
           );
         })}
-        {commits.length === 0 && (
+        {filteredCommits.length === 0 && (
           <div className="text-zinc-500 text-xs px-2 text-center mt-4">
-            No history available.
+            {commits.length === 0 ? "No history available." : "No commits match your search."}
           </div>
         )}
       </div>
 
-      {contextMenu && (
-        <div
-          className="fixed z-50 bg-zinc-900 border border-zinc-700/50 rounded-lg shadow-xl py-1 min-w-[160px] text-[13px] text-zinc-300 backdrop-blur-xl"
-          style={{top: contextMenu.y, left: contextMenu.x}}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={() => {
-              handleCopyContents(contextMenu.commit);
-              setContextMenu(null);
-            }}
-            className="w-full text-left px-3 py-1.5 hover:bg-zinc-800 flex items-center gap-2 transition-colors group"
-          >
-            <Copy size={14} className="text-zinc-500 group-hover:text-zinc-300 transition-colors"/>
-            <span>Copy File Contents</span>
-          </button>
 
-          <button
-            onClick={() => {
-              handleCopyId(contextMenu.commit);
-              setContextMenu(null);
-            }}
-            className="w-full text-left px-3 py-1.5 hover:bg-zinc-800 flex items-center gap-2 transition-colors group"
-          >
-            <Hash size={14} className="text-zinc-500 group-hover:text-zinc-300 transition-colors"/>
-            <span>Copy Commit ID</span>
-          </button>
-
-          <div className="h-px bg-zinc-800/80 my-1 mx-2"/>
-
-          <button
-            onClick={() => {
-              handleRestore(contextMenu.commit);
-              setContextMenu(null);
-            }}
-            className="w-full text-left px-3 py-1.5 hover:bg-zinc-800 flex items-center gap-2 transition-colors group"
-          >
-            <RotateCcw size={14} className="text-emerald-500 group-hover:text-emerald-400 transition-colors"/>
-            <span
-              className="text-emerald-400 group-hover:text-emerald-300 transition-colors">Restore This Version</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 }

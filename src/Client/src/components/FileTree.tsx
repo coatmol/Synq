@@ -1,8 +1,8 @@
 import React, {useState, useEffect} from 'react';
 import {api} from '../api';
 import {useDocumentStore} from '../hooks/useDocumentHub';
-import {Dropdown, Modal, Button, Input, Tooltip} from "@heroui/react";
-import {Folder, FolderOpen, FileText, Plus, FolderPlus, NotebookIcon, LineSquiggle} from 'lucide-react';
+import {Dropdown, Modal, Button, Input, Tooltip, Header, Separator} from "@heroui/react";
+import {Folder, FolderOpen, FileText, Plus, FolderPlus, NotebookIcon, LineSquiggle, PenSquare, Trash2, ExternalLink, History} from 'lucide-react';
 
 const NodeType = {
   Folder: 0,
@@ -23,7 +23,7 @@ export function FileTree() {
   const [files, setFiles] = useState<string[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set([''])); // empty string is root
-  const {setActiveFile, activeFile} = useDocumentStore();
+  const {setActiveFile, activeFile, setSidebarTab, setVersionHistoryFilter} = useDocumentStore();
   const [selectedFolder, setSelectedFolder] = useState<string>(''); // For new file/folder creation context
   const [notebookName, setNotebookName] = useState<string>('Notebook');
 
@@ -275,20 +275,62 @@ export function FileTree() {
             </div>
           </Dropdown.Trigger>
 
-          <Dropdown.Popover className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-xl min-w-[120px]">
-            <Dropdown.Menu aria-label="Item Actions" className="p-1">
-              <Dropdown.Item key="rename" onPress={() => handleRename(node)}
-                             className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 cursor-pointer">
-                Rename
-              </Dropdown.Item>
-              <Dropdown.Item key="delete" onPress={() => handleDelete(node)}
-                             className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 cursor-pointer">
-                Delete
-              </Dropdown.Item>
-              <Dropdown.Item key="openNative" onPress={() => handleNativeOpen(node)}
-                             className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 cursor-pointer">
-                Open in Explorer
-              </Dropdown.Item>
+          <Dropdown.Popover className="bg-[#18181b] border border-zinc-800/80 shadow-2xl rounded-xl min-w-[240px] p-1.5 overflow-hidden">
+            <Dropdown.Menu aria-label="Item Actions" className="outline-none flex flex-col gap-0.5">
+              <Dropdown.Section>
+                <Header className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-1.5 select-none">Actions</Header>
+                <Dropdown.Item id="rename" textValue="Rename" onPress={() => handleRename(node)}
+                               className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-zinc-300 data-[focused=true]:bg-zinc-800/80 data-[focused=true]:text-zinc-100 transition-colors">
+                  <div className="flex h-5 items-center justify-center shrink-0">
+                    <PenSquare size={16} className="text-zinc-400" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[13px] font-medium truncate">Rename</span>
+                    <span className="text-[11px] text-zinc-500 truncate">Change the name of this item</span>
+                  </div>
+                </Dropdown.Item>
+                <Dropdown.Item id="openNative" textValue="Open in Explorer" onPress={() => handleNativeOpen(node)}
+                               className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-zinc-300 data-[focused=true]:bg-zinc-800/80 data-[focused=true]:text-zinc-100 transition-colors">
+                  <div className="flex h-5 items-center justify-center shrink-0">
+                    <ExternalLink size={16} className="text-zinc-400" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[13px] font-medium truncate">Open in Explorer</span>
+                    <span className="text-[11px] text-zinc-500 truncate">Reveal in your native OS</span>
+                  </div>
+                </Dropdown.Item>
+                {node.type !== NodeType.Folder && (
+                  <Dropdown.Item id="viewHistory" textValue="View Version History" onPress={() => {
+                    setVersionHistoryFilter(node.path);
+                    setSidebarTab('history');
+                  }}
+                                 className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-zinc-300 data-[focused=true]:bg-zinc-800/80 data-[focused=true]:text-zinc-100 transition-colors">
+                    <div className="flex h-5 items-center justify-center shrink-0">
+                      <History size={16} className="text-zinc-400" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[13px] font-medium truncate">View Version History</span>
+                      <span className="text-[11px] text-zinc-500 truncate">See past commits and changes</span>
+                    </div>
+                  </Dropdown.Item>
+                )}
+              </Dropdown.Section>
+              
+              <Separator className="bg-zinc-800/60 my-1 mx-2 h-px" />
+              
+              <Dropdown.Section>
+                <Header className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-1.5 select-none">Danger Zone</Header>
+                <Dropdown.Item id="delete" textValue="Delete" variant="danger" onPress={() => handleDelete(node)}
+                               className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-red-400 data-[focused=true]:bg-red-500/10 data-[focused=true]:text-red-400 transition-colors">
+                  <div className="flex h-5 items-center justify-center shrink-0">
+                    <Trash2 size={16} className="text-red-400" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[13px] font-medium truncate">Delete</span>
+                    <span className="text-[11px] text-red-400/70 truncate">Move this item to trash</span>
+                  </div>
+                </Dropdown.Item>
+              </Dropdown.Section>
             </Dropdown.Menu>
           </Dropdown.Popover>
         </Dropdown>

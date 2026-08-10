@@ -20,6 +20,10 @@ interface DocumentState {
   setDocumentStats: (stats: { words: number; chars: number; line: number; col: number }) => void;
   wanPeers: any[];
   setWanPeers: (peers: any[]) => void;
+  sidebarTab: 'files' | 'history';
+  setSidebarTab: (tab: 'files' | 'history') => void;
+  versionHistoryFilter: string;
+  setVersionHistoryFilter: (filter: string) => void;
 }
 
 // Per-file document cache so tab switching is instant for already-loaded files.
@@ -60,6 +64,10 @@ export const useDocumentStore = create<DocumentState>((set) => ({
   setDocumentStats: (stats) => set({documentStats: stats}),
   wanPeers: [],
   setWanPeers: (peers) => set({wanPeers: peers}),
+  sidebarTab: 'files',
+  setSidebarTab: (tab) => set({sidebarTab: tab}),
+  versionHistoryFilter: '',
+  setVersionHistoryFilter: (filter) => set({versionHistoryFilter: filter}),
 }));
 
 // ─── Singleton SignalR connection ────────────────────────────────────

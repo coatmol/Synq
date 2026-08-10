@@ -3,7 +3,7 @@ import {useState, useEffect} from "react";
 import {toast} from "sonner";
 import {api} from "../api";
 import {ConnectModal} from "./ConnectModal";
-import {ArrowRight, MoreVertical, Minus, Square, X} from "lucide-react";
+import {ArrowRight, MoreVertical, Minus, Square, X, Trash2} from "lucide-react";
 import {Dropdown} from "@heroui/react";
 import {UserAvatar} from "./UserAvatar";
 
@@ -158,11 +158,17 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
                       </button>
                     </Dropdown.Trigger>
                     <Dropdown.Popover
-                      className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-2xl">
-                      <Dropdown.Menu aria-label="Recent Options" className="p-1">
-                        <Dropdown.Item key="remove" onPress={() => handleRemoveRecent(folder)}
-                                       className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer">
-                          Remove from Recents
+                      className="bg-[#18181b] border border-zinc-800/80 shadow-2xl rounded-xl min-w-[240px] p-1.5 overflow-hidden">
+                      <Dropdown.Menu aria-label="Recent Options" className="outline-none flex flex-col gap-0.5">
+                        <Dropdown.Item key="remove" textValue="Remove from Recents" onPress={() => handleRemoveRecent(folder)}
+                                       className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-red-400 data-[focused=true]:bg-red-500/10 data-[focused=true]:text-red-400 transition-colors">
+                          <div className="flex h-5 items-center justify-center shrink-0">
+                            <Trash2 size={16} className="text-red-400" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[13px] font-medium truncate">Remove from Recents</span>
+                            <span className="text-[11px] text-red-400/70 truncate">Clear folder from history</span>
+                          </div>
                         </Dropdown.Item>
                       </Dropdown.Menu>
                     </Dropdown.Popover>

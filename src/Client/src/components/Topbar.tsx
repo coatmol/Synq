@@ -1,7 +1,7 @@
 // @ts-nocheck
 import * as React from "react";
-import {Button, Dropdown} from "@heroui/react";
-import {Minus, Square, X} from "lucide-react";
+import {Button, Dropdown, Header, Separator} from "@heroui/react";
+import {Minus, Square, X, FilePlus2, FolderOpen, Settings, XCircle, LogOut} from "lucide-react";
 import {LanPeersPanel} from "./LanPeersPanel";
 import {SettingsModal} from "./SettingsModal";
 
@@ -23,31 +23,76 @@ export function FileMenu() {
           File
         </Button>
       </Dropdown.Trigger>
-      <Dropdown.Popover className="dark bg-zinc-900 border border-zinc-800 rounded-md shadow-2xl min-w-50">
-        <Dropdown.Menu aria-label="File Options" className="p-1">
-          <Dropdown.Item key="new" onPress={() => window.dispatchEvent(new Event('trigger-new-file'))}
-                         className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
-            New Document
-          </Dropdown.Item>
-          <Dropdown.Item key="open" onPress={() => sendMessage("openFolder")}
-                         className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
-            Open Folder...
-          </Dropdown.Item>
-          <Dropdown.Item key="settings" onPress={() => window.dispatchEvent(new Event('open-settings'))}
-                         className="text-xs text-zinc-300 hover:bg-zinc-800 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-zinc-800 transition-colors">
-            Settings...
-          </Dropdown.Item>
-          <Dropdown.Item key="close" onPress={() => {
-            sendMessage("closeFolder");
-            setTimeout(() => window.location.reload(), 100);
-          }}
-                         className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
-            Close folder
-          </Dropdown.Item>
-          <Dropdown.Item key="quit" onPress={() => sendMessage("close")}
-                         className="text-xs text-red-400 hover:bg-red-950/30 rounded px-2 py-1.5 outline-none cursor-pointer data-[hover=true]:bg-red-950/50 transition-colors">
-            Quit Synq
-          </Dropdown.Item>
+      <Dropdown.Popover className="bg-[#18181b] border border-zinc-800/80 shadow-2xl rounded-xl min-w-[240px] p-1.5 overflow-hidden">
+        <Dropdown.Menu aria-label="File Options" className="outline-none flex flex-col gap-0.5">
+          <Dropdown.Section>
+            <Header className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-1.5 select-none">File</Header>
+            <Dropdown.Item key="new" textValue="New Document" onPress={() => window.dispatchEvent(new Event('trigger-new-file'))}
+                           className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-zinc-300 data-[focused=true]:bg-zinc-800/80 data-[focused=true]:text-zinc-100 transition-colors">
+              <div className="flex h-5 items-center justify-center shrink-0">
+                <FilePlus2 size={16} className="text-zinc-400" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[13px] font-medium truncate">New Document</span>
+                <span className="text-[11px] text-zinc-500 truncate">Create a new file in workspace</span>
+              </div>
+            </Dropdown.Item>
+            <Dropdown.Item key="open" textValue="Open Folder..." onPress={() => sendMessage("openFolder")}
+                           className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-zinc-300 data-[focused=true]:bg-zinc-800/80 data-[focused=true]:text-zinc-100 transition-colors">
+              <div className="flex h-5 items-center justify-center shrink-0">
+                <FolderOpen size={16} className="text-zinc-400" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[13px] font-medium truncate">Open Folder...</span>
+                <span className="text-[11px] text-zinc-500 truncate">Open a workspace folder</span>
+              </div>
+            </Dropdown.Item>
+          </Dropdown.Section>
+
+          <Separator className="bg-zinc-800/60 my-1 mx-2 h-px" />
+
+          <Dropdown.Section>
+            <Header className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-1.5 select-none">Preferences</Header>
+            <Dropdown.Item key="settings" textValue="Settings..." onPress={() => window.dispatchEvent(new Event('open-settings'))}
+                           className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-zinc-300 data-[focused=true]:bg-zinc-800/80 data-[focused=true]:text-zinc-100 transition-colors">
+              <div className="flex h-5 items-center justify-center shrink-0">
+                <Settings size={16} className="text-zinc-400" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[13px] font-medium truncate">Settings...</span>
+                <span className="text-[11px] text-zinc-500 truncate">Manage app preferences</span>
+              </div>
+            </Dropdown.Item>
+          </Dropdown.Section>
+
+          <Separator className="bg-zinc-800/60 my-1 mx-2 h-px" />
+
+          <Dropdown.Section>
+            <Header className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-1.5 select-none">Danger Zone</Header>
+            <Dropdown.Item key="close" textValue="Close folder" onPress={() => {
+              sendMessage("closeFolder");
+              setTimeout(() => window.location.reload(), 100);
+            }}
+                           className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-red-400 data-[focused=true]:bg-red-500/10 data-[focused=true]:text-red-400 transition-colors">
+              <div className="flex h-5 items-center justify-center shrink-0">
+                <XCircle size={16} className="text-red-400" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[13px] font-medium truncate">Close folder</span>
+                <span className="text-[11px] text-red-400/70 truncate">Close current workspace</span>
+              </div>
+            </Dropdown.Item>
+            <Dropdown.Item key="quit" textValue="Quit Synq" onPress={() => sendMessage("close")}
+                           className="flex items-start gap-3 px-2 py-2 rounded-lg outline-none cursor-pointer text-red-400 data-[focused=true]:bg-red-500/10 data-[focused=true]:text-red-400 transition-colors">
+              <div className="flex h-5 items-center justify-center shrink-0">
+                <LogOut size={16} className="text-red-400" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[13px] font-medium truncate">Quit Synq</span>
+                <span className="text-[11px] text-red-400/70 truncate">Exit the application</span>
+              </div>
+            </Dropdown.Item>
+          </Dropdown.Section>
         </Dropdown.Menu>
       </Dropdown.Popover>
       <SettingsModal/>
