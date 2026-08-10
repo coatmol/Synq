@@ -27,15 +27,15 @@ Instead of relying on a centralized database or cloud backend to resolve concurr
 
 ## 🗝️ Key Features
 
-* **Absolute Privacy & Data Sovereignty:** Your data is completely air-gapped from the cloud. No analytics, no telemetry, no mandatory sign-ups, and no middleman servers.
-* **Advanced Markdown Editor:** A frictionless, focused writing environment with robust support for markdown, bi-directional linking, LaTeX math, and networked thought organization.
-* **Visual Whiteboarding:** Native integration with Excalidraw allows you to create diagrams, sync them locally, and seamlessly embed them as live, interactive SVGs directly into your markdown notes.
-* **Zero-Server Architecture:** No central database, backend API, or cloud service required. The client *is* the server.
-* **Homelab Server Node:** Deploy Synq as an always-on container on your NAS or homelab to provide a 24/7 persistent peer, complete with a functional Web UI for remote access.
-* **Deterministic Conflict Resolution:** Mathematical guarantees ensure all peers eventually converge on the exact same document state regardless of network latency, packet reordering, or offline duration.
-* **Offline-First Storage:** Local-first state persistence backed by a lightweight file-system database. You retain 100% ownership of your data offline.
-* **Zero-Configuration Discovery:** Automatic peer discovery across local Wi-Fi and LAN networks using Multicast DNS (mDNS).
-* **Built-in Version Control:** Native versioning system that tracks changes and allows you to restore previous versions of your documents.
+* 🛡️ **Absolute Privacy & Data Sovereignty:** Your data is completely air-gapped from the cloud. No analytics, no telemetry, no mandatory sign-ups, and no middleman servers.
+* 📝 **Advanced Markdown Editor:** A frictionless, focused writing environment with robust support for markdown, bi-directional linking, LaTeX math, and networked thought organization.
+* 🎨 **Visual Whiteboarding:** Native integration with Excalidraw allows you to create diagrams, sync them locally, and seamlessly embed them as live, interactive SVGs directly into your markdown notes.
+* 🚫 **Zero-Server Architecture:** No central database, backend API, or cloud service required. The client *is* the server.
+* 🖥️ **Homelab Server Node:** Deploy Synq as an always-on container on your NAS or homelab to provide a 24/7 persistent peer, complete with a functional Web UI for remote access.
+* 🔄 **Deterministic Conflict Resolution:** Mathematical guarantees ensure all peers eventually converge on the exact same document state regardless of network latency, packet reordering, or offline duration.
+* 💾 **Offline-First Storage:** Local-first state persistence backed by a lightweight file-system database. You retain 100% ownership of your data offline.
+* 📡 **Zero-Configuration Discovery:** Automatic peer discovery across local Wi-Fi and LAN networks using Multicast DNS (mDNS).
+* ⏪ **Built-in Version Control:** Native versioning system that tracks changes and allows you to restore previous versions of your documents.
 
 ---
 
