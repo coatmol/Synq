@@ -13,7 +13,7 @@ Synq is a local-first markdown editor and knowledge base with a custom peer-to-p
 
 To build and run Synq locally, you will need:
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/download)
-- [Node.js](https://nodejs.org/) (v18 or higher)
+- [Bun](https://bun.sh/)
 - A C# IDE (like JetBrains Rider, Visual Studio, or VS Code)
 
 ### Steps to Run:
@@ -25,11 +25,11 @@ To build and run Synq locally, you will need:
 2. **Install frontend dependencies:**
    ```bash
    cd src/Client
-   npm install
+   bun install
    ```
 3. **Run the frontend in Dev Mode:**
    ```bash
-   npm run dev
+   bun dev
    ```
 4. **Run the Desktop App:**
    Open a new terminal and run the Photino application, passing the `--dev` flag so it connects to the Vite dev server instead of looking for built static files.
@@ -61,7 +61,7 @@ You can request a new feature by submitting an issue to our GitHub Repository. I
 
 ### Code Style Guidelines
 - **C#**: We follow standard Microsoft C# coding conventions. Keep classes small and focused.
-- **TypeScript/React**: We use ESLint and Prettier. Run `npm run lint` before committing.
+- **TypeScript/React**: We use ESLint and Prettier. Run `bun run lint` before committing.
 - **CRDT Engine**: Changes to the `Engine` project must maintain deterministic state convergence. Please ensure robust unit tests are written for any networking or conflict-resolution logic.
 
 ## Code of Conduct
