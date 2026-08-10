@@ -1,20 +1,38 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 using Engine;
+using System;
+using System.Threading.Tasks;
 
 namespace Desktop;
 
 public class VersionControlManager
 {
     private readonly WorkspaceState _state;
+    private readonly SemaphoreSlim _lock = new(1, 1);
 
     public VersionControlManager(WorkspaceState state)
     {
         _state = state;
     }
 
-    public async Task<string?> CommitFileAsync(string fileName, string authorName)
+    private async Task AtomicWriteJsonAsync<T>(string filePath, T data)
+    {
+        var tempFile = filePath + ".tmp";
+        var dir = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        await File.WriteAllTextAsync(tempFile, JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true }));
+        File.Move(tempFile, filePath, overwrite: true);
+    }
+
+    public async Task<string?> CommitFileAsync(string fileName, string authorName, string? message = null)
     {
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return null;
 
@@ -23,65 +41,73 @@ public class VersionControlManager
 
         var content = await File.ReadAllTextAsync(absPath);
 
-        string commitId;
+        string contentHash;
         using (var sha256 = SHA256.Create())
         {
             var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(content));
-            commitId = Convert.ToHexString(hashBytes).ToLowerInvariant();
+            contentHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
         }
 
         var dotSynq = Path.Combine(_state.CurrentFolder, ".synq");
         var indexFile = Path.Combine(dotSynq, "file_index.json");
-        if (!Directory.Exists(dotSynq)) Directory.CreateDirectory(dotSynq);
 
-        Dictionary<string, string> index = new();
-        if (File.Exists(indexFile))
-            index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile)) ??
-                    new Dictionary<string, string>();
-
-        if (!index.TryGetValue(fileName, out var uuid))
+        await _lock.WaitAsync();
+        try
         {
-            uuid = Guid.NewGuid().ToString("N");
-            index[fileName] = uuid;
-            await File.WriteAllTextAsync(indexFile,
-                JsonSerializer.Serialize(index, new JsonSerializerOptions { WriteIndented = true }));
+            Dictionary<string, string> index = new();
+            if (File.Exists(indexFile))
+                index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile)) ??
+                        new Dictionary<string, string>();
+
+            if (!index.TryGetValue(fileName, out var uuid))
+            {
+                uuid = Guid.NewGuid().ToString("N");
+                index[fileName] = uuid;
+                await AtomicWriteJsonAsync(indexFile, index);
+            }
+
+            var historyDir = Path.Combine(dotSynq, "history", uuid);
+            var objectsDir = Path.Combine(historyDir, "objects");
+            if (!Directory.Exists(objectsDir)) Directory.CreateDirectory(objectsDir);
+
+            var objectFile = Path.Combine(objectsDir, $"{contentHash}.bin");
+            if (!File.Exists(objectFile))
+            {
+                var compressed = MarkdownCompressor.Compress(content);
+                await File.WriteAllBytesAsync(objectFile, compressed);
+            }
+
+            var commitsFile = Path.Combine(historyDir, "commits.json");
+            CommitHistory history = new();
+            if (File.Exists(commitsFile))
+                history = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile)) ??
+                          new CommitHistory();
+
+            if (history.Head != null && history.Commits.LastOrDefault()?.ContentHash == contentHash) 
+                return history.Head;
+
+            var commitId = Guid.NewGuid().ToString("N");
+            var newCommit = new CommitRecord
+            {
+                CommitId = commitId,
+                ContentHash = contentHash,
+                ParentId = history.Head,
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                AuthorName = authorName,
+                Message = message ?? (history.Commits.Count == 0 ? $"Created {fileName}" : $"Edited {fileName}")
+            };
+
+            history.Commits.Add(newCommit);
+            history.Head = commitId;
+
+            await AtomicWriteJsonAsync(commitsFile, history);
+
+            return commitId;
         }
-
-        var historyDir = Path.Combine(dotSynq, "history", uuid);
-        var objectsDir = Path.Combine(historyDir, "objects");
-        if (!Directory.Exists(objectsDir)) Directory.CreateDirectory(objectsDir);
-
-        var objectFile = Path.Combine(objectsDir, $"{commitId}.bin");
-        if (!File.Exists(objectFile))
+        finally
         {
-            var compressed = MarkdownCompressor.Compress(content);
-            await File.WriteAllBytesAsync(objectFile, compressed);
+            _lock.Release();
         }
-
-        var commitsFile = Path.Combine(historyDir, "commits.json");
-        CommitHistory history = new();
-        if (File.Exists(commitsFile))
-            history = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile)) ??
-                      new CommitHistory();
-
-        if (history.Commits.Any(c => c.CommitId == commitId)) return commitId; // No changes to commit
-
-        var newCommit = new CommitRecord
-        {
-            CommitId = commitId,
-            ParentId = history.Head,
-            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            AuthorName = authorName,
-            Message = history.Commits.Count == 0 ? $"Created {fileName}" : $"Edited {fileName}"
-        };
-
-        history.Commits.Add(newCommit);
-        history.Head = commitId;
-
-        await File.WriteAllTextAsync(commitsFile,
-            JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true }));
-
-        return commitId;
     }
 
     public async Task<string?> CommitDeletionAsync(string fileName, string authorName)
@@ -90,50 +116,53 @@ public class VersionControlManager
 
         var dotSynq = Path.Combine(_state.CurrentFolder, ".synq");
         var indexFile = Path.Combine(dotSynq, "file_index.json");
-        if (!Directory.Exists(dotSynq)) return null;
 
-        Dictionary<string, string> index = new();
-        if (File.Exists(indexFile))
+        await _lock.WaitAsync();
+        try
+        {
+            if (!File.Exists(indexFile)) return null;
+
+            Dictionary<string, string> index = new();
             index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile)) ??
                     new Dictionary<string, string>();
 
-        if (!index.TryGetValue(fileName, out var uuid)) return null;
+            if (!index.TryGetValue(fileName, out var uuid)) return null;
 
-        var historyDir = Path.Combine(dotSynq, "history", uuid);
-        var objectsDir = Path.Combine(historyDir, "objects");
-        if (!Directory.Exists(objectsDir)) Directory.CreateDirectory(objectsDir);
+            var historyDir = Path.Combine(dotSynq, "history", uuid);
+            var objectsDir = Path.Combine(historyDir, "objects");
+            if (!Directory.Exists(objectsDir)) Directory.CreateDirectory(objectsDir);
 
-        var commitId = "deleted-" + Guid.NewGuid().ToString("N");
-        var objectFile = Path.Combine(objectsDir, $"{commitId}.bin");
-        if (!File.Exists(objectFile))
-        {
-            var compressed = MarkdownCompressor.Compress("");
-            await File.WriteAllBytesAsync(objectFile, compressed);
+            var commitId = Guid.NewGuid().ToString("N");
+            var contentHash = ""; 
+            
+            var commitsFile = Path.Combine(historyDir, "commits.json");
+            CommitHistory history = new();
+            if (File.Exists(commitsFile))
+                history = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile)) ??
+                          new CommitHistory();
+
+            var newCommit = new CommitRecord
+            {
+                CommitId = commitId,
+                ContentHash = contentHash,
+                ParentId = history.Head,
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                AuthorName = authorName,
+                Message = $"Deleted {fileName}",
+                IsDeleted = true
+            };
+
+            history.Commits.Add(newCommit);
+            history.Head = commitId;
+
+            await AtomicWriteJsonAsync(commitsFile, history);
+
+            return commitId;
         }
-
-        var commitsFile = Path.Combine(historyDir, "commits.json");
-        CommitHistory history = new();
-        if (File.Exists(commitsFile))
-            history = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile)) ??
-                      new CommitHistory();
-
-        var newCommit = new CommitRecord
+        finally
         {
-            CommitId = commitId,
-            ParentId = history.Head,
-            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            AuthorName = authorName,
-            Message = $"Deleted {fileName}",
-            IsDeleted = true
-        };
-
-        history.Commits.Add(newCommit);
-        history.Head = commitId;
-
-        await File.WriteAllTextAsync(commitsFile,
-            JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true }));
-
-        return commitId;
+            _lock.Release();
+        }
     }
 
     public async Task MergeFileIndexAsync(string remoteFileIndexContent)
@@ -141,29 +170,37 @@ public class VersionControlManager
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return;
 
         var indexFile = Path.Combine(_state.CurrentFolder, ".synq", "file_index.json");
-        Dictionary<string, string> localIndex = new();
-        if (File.Exists(indexFile))
-            localIndex =
-                JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile)) ??
-                new Dictionary<string, string>();
+        
+        await _lock.WaitAsync();
+        try
+        {
+            Dictionary<string, string> localIndex = new();
+            if (File.Exists(indexFile))
+                localIndex =
+                    JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile)) ??
+                    new Dictionary<string, string>();
 
-        var remoteIndex = JsonSerializer.Deserialize<Dictionary<string, string>>(remoteFileIndexContent) ??
-                          new Dictionary<string, string>();
-        var changed = false;
+            var remoteIndex = JsonSerializer.Deserialize<Dictionary<string, string>>(remoteFileIndexContent) ??
+                              new Dictionary<string, string>();
+            var changed = false;
 
-        foreach (var kvp in remoteIndex)
-            if (!localIndex.ContainsKey(kvp.Key) || localIndex[kvp.Key] != kvp.Value)
+            foreach (var kvp in remoteIndex)
             {
-                localIndex[kvp.Key] = kvp.Value;
-                changed = true;
+                if (!localIndex.ContainsKey(kvp.Key))
+                {
+                    localIndex[kvp.Key] = kvp.Value;
+                    changed = true;
+                }
             }
 
-        if (changed)
+            if (changed)
+            {
+                await AtomicWriteJsonAsync(indexFile, localIndex);
+            }
+        }
+        finally
         {
-            var dir = Path.GetDirectoryName(indexFile);
-            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir!);
-            await File.WriteAllTextAsync(indexFile,
-                JsonSerializer.Serialize(localIndex, new JsonSerializerOptions { WriteIndented = true }));
+            _lock.Release();
         }
     }
 
@@ -173,33 +210,39 @@ public class VersionControlManager
         if (!System.Text.RegularExpressions.Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return;
 
         var commitsFile = Path.Combine(_state.CurrentFolder, ".synq", "history", uuid, "commits.json");
-        CommitHistory localHistory = new();
-        if (File.Exists(commitsFile))
-            localHistory = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile)) ??
-                           new CommitHistory();
-
-        var remoteHistory = JsonSerializer.Deserialize<CommitHistory>(remoteCommitsJsonContent) ?? new CommitHistory();
-        var changed = false;
-
-        var localCommitIds = new HashSet<string>(localHistory.Commits.Select(c => c.CommitId));
-
-        foreach (var remoteCommit in remoteHistory.Commits)
-            if (!localCommitIds.Contains(remoteCommit.CommitId))
-            {
-                localHistory.Commits.Add(remoteCommit);
-                changed = true;
-            }
-
-        if (changed)
+        
+        await _lock.WaitAsync();
+        try
         {
-            localHistory.Commits = localHistory.Commits.OrderBy(c => c.Timestamp).ToList();
-            var latest = localHistory.Commits.LastOrDefault();
-            if (latest != null) localHistory.Head = latest.CommitId;
+            CommitHistory localHistory = new();
+            if (File.Exists(commitsFile))
+                localHistory = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile)) ??
+                               new CommitHistory();
 
-            var dir = Path.GetDirectoryName(commitsFile);
-            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir!);
-            await File.WriteAllTextAsync(commitsFile,
-                JsonSerializer.Serialize(localHistory, new JsonSerializerOptions { WriteIndented = true }));
+            var remoteHistory = JsonSerializer.Deserialize<CommitHistory>(remoteCommitsJsonContent) ?? new CommitHistory();
+            var changed = false;
+
+            var localCommitIds = new HashSet<string>(localHistory.Commits.Select(c => c.CommitId));
+
+            foreach (var remoteCommit in remoteHistory.Commits)
+                if (!localCommitIds.Contains(remoteCommit.CommitId))
+                {
+                    localHistory.Commits.Add(remoteCommit);
+                    changed = true;
+                }
+
+            if (changed)
+            {
+                localHistory.Commits = localHistory.Commits.OrderBy(c => c.Timestamp).ToList();
+                var latest = localHistory.Commits.LastOrDefault();
+                if (latest != null) localHistory.Head = latest.CommitId;
+
+                await AtomicWriteJsonAsync(commitsFile, localHistory);
+            }
+        }
+        finally
+        {
+            _lock.Release();
         }
     }
 }

@@ -97,6 +97,32 @@ public static class ApiEndpoints
             return Results.Ok();
         });
 
+        app.MapPost("/api/files/restore", async (HttpRequest req, WorkspaceState state, DocumentManager docManager, VersionControlManager vc, SyncManager sync, IHubContext<DocumentHub> hubContext) =>
+        {
+            using var reader = new StreamReader(req.Body);
+            var body = await reader.ReadToEndAsync();
+            var data = JsonDocument.Parse(body);
+            var filename = data.RootElement.GetProperty("filename").GetString();
+            var content = data.RootElement.GetProperty("content").GetString();
+            var commitId = data.RootElement.GetProperty("commitId").GetString();
+            
+            var path = PathUtils.GetSafePath(state.CurrentFolder, filename!);
+            if (path == null) return Results.BadRequest();
+            
+            var isDoc = filename!.EndsWith(".md") || filename.EndsWith(".excalidraw");
+            if (File.Exists(path) && isDoc) await vc.CommitFileAsync(filename, "Auto-Save (Before Restore)");
+            
+            await File.WriteAllTextAsync(path, content!);
+            var doc = docManager.GetOrCreateDocument(filename!);
+            doc.OverwriteFromContent(content!);
+            
+            if (isDoc) await vc.CommitFileAsync(filename, state.Settings.Username, $"Restored from {commitId}");
+            
+            sync.InitializeLocalFolder();
+            await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, content);
+            return Results.Ok();
+        });
+
         app.MapPost("/api/rawfile",
             async (HttpRequest req, WorkspaceState state, DocumentManager docManager, SyncManager sync,
                 VersionControlManager vc) =>
@@ -584,7 +610,7 @@ public static class ApiEndpoints
                             foreach (var c in history.Commits)
                                 allCommits.Add(new
                                 {
-                                    c.CommitId, c.ParentId, c.Timestamp, c.AuthorName, c.Message, c.IsDeleted,
+                                    c.CommitId, c.ContentHash, c.ParentId, c.Timestamp, c.AuthorName, c.Message, c.IsDeleted,
                                     fileName
                                 });
                     }
@@ -605,7 +631,7 @@ public static class ApiEndpoints
                             foreach (var c in history.Commits)
                                 allCommits.Add(new
                                 {
-                                    c.CommitId, c.ParentId, c.Timestamp, c.AuthorName, c.Message, c.IsDeleted,
+                                    c.CommitId, c.ContentHash, c.ParentId, c.Timestamp, c.AuthorName, c.Message, c.IsDeleted,
                                     fileName = fName
                                 });
                     }
@@ -626,10 +652,17 @@ public static class ApiEndpoints
             var index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile));
             if (index == null || !index.TryGetValue(fileName, out var uuid)) return Results.NotFound();
 
-            if (!System.Text.RegularExpressions.Regex.IsMatch(commitId, "^(deleted-[0-9a-f]{32}|[0-9a-f]{64})$"))
+            if (!System.Text.RegularExpressions.Regex.IsMatch(commitId, "^([0-9a-f]{32})$"))
                 return Results.BadRequest();
 
-            var objectFile = Path.Combine(dotSynq, "history", uuid, "objects", $"{commitId}.bin");
+            var commitsFile = Path.Combine(dotSynq, "history", uuid, "commits.json");
+            if (!File.Exists(commitsFile)) return Results.NotFound();
+            var history = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile));
+            var commit = history?.Commits.FirstOrDefault(c => c.CommitId == commitId);
+            if (commit == null) return Results.NotFound();
+            if (commit.IsDeleted) return Results.Ok(new { content = "" });
+
+            var objectFile = Path.Combine(dotSynq, "history", uuid, "objects", $"{commit.ContentHash}.bin");
             if (!File.Exists(objectFile)) return Results.NotFound();
 
             var bytes = await File.ReadAllBytesAsync(objectFile);
@@ -642,6 +675,7 @@ public static class ApiEndpoints
 public class CommitRecord
 {
     public string CommitId { get; set; } = string.Empty;
+    public string ContentHash { get; set; } = string.Empty;
     public string? ParentId { get; set; }
     public long Timestamp { get; set; }
     public string AuthorName { get; set; } = string.Empty;

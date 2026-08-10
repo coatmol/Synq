@@ -262,7 +262,7 @@ export function FileTree() {
                   isExpanded ? <FolderOpen
                       className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : isSelectedFolder ? 'text-emerald-400' : 'text-zinc-500'}`}/> :
                     <Folder
-                      className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-zinc-600 group-hover/item:text-zinc-400'}`}/>
+                      className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : isSelectedFolder ? 'text-emerald-400' : 'text-zinc-600 group-hover/item:text-zinc-400'}`}/>
                 ) : node.type === NodeType.File ? (
                   <FileText
                     className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-zinc-600 group-hover/item:text-zinc-400'}`}/>

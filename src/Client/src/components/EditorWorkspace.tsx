@@ -101,14 +101,14 @@ export function EditorWorkspace() {
           }
 
           if (update.docChanged) {
-            if (debounceTimer.current) clearTimeout(debounceTimer.current);
-            const file = activeFile;
-            debounceTimer.current = setTimeout(async () => {
-              await api.commitFile(file);
-            }, 5000);
-
             const isRemote = update.transactions.some(tr => tr.annotation(remoteUpdateAnnotation));
             if (!isRemote) {
+              if (debounceTimer.current) clearTimeout(debounceTimer.current);
+              const file = activeFile;
+              if (file) {
+                debounceTimer.current = setTimeout(() => api.commitFile(file), 5000);
+              }
+
               const changes: {
                 type: 'insert' | 'delete',
                 index: number,

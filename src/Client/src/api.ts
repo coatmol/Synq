@@ -81,6 +81,20 @@ export const api = {
     }
   },
 
+  restoreFile: async (filename: string, content: string, commitId: string): Promise<boolean> => {
+    try {
+      const response = await fetchWithAuth(`${BASE_URL}/api/files/restore`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({filename, content, commitId})
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to restore file", e);
+      return false;
+    }
+  },
+
   renameItem: async (oldPath: string, newPath: string): Promise<boolean> => {
     try {
       const response = await fetchWithAuth(`${BASE_URL}/api/files/rename`, {

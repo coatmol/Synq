@@ -15,6 +15,7 @@ export function DiffViewer({fileUri}: DiffViewerProps) {
   const [fileName, setFileName] = useState('');
 
   useEffect(() => {
+    let disposed = false;
     const parts = fileUri.split(':');
     const fName = parts[1];
     const commitId = parts[2];
@@ -32,16 +33,21 @@ export function DiffViewer({fileUri}: DiffViewerProps) {
           oldText = await api.getCommitContent(fName, parentId) || '';
         }
 
-        setNewContent(newText);
-        setOldContent(oldText);
+        if (!disposed) {
+          setNewContent(newText);
+          setOldContent(oldText);
+        }
       } catch (e) {
         console.error(e);
       } finally {
-        setLoading(false);
+        if (!disposed) setLoading(false);
       }
     };
 
     loadData();
+    return () => {
+      disposed = true;
+    };
   }, [fileUri]);
 
   if (loading) {

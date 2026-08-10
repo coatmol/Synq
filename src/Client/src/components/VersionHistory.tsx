@@ -32,7 +32,7 @@ export function VersionHistory() {
   const handleRestore = async (commit: any) => {
     const content = await api.getCommitContent(commit.fileName, commit.commitId);
     if (content !== null) {
-      await api.updateFile(commit.fileName, content);
+      await api.restoreFile(commit.fileName, content, commit.commitId);
       setActiveFile(commit.fileName);
       await fetchCommits(); // Refresh to show new commit
     }
