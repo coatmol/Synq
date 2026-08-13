@@ -91,7 +91,6 @@ export function FileMenu() {
           </Dropdown.Section>
         </Dropdown.Menu>
       </Dropdown.Popover>
-      <SettingsModal/>
     </Dropdown>
   );
 }

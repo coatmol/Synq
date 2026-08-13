@@ -97,15 +97,20 @@ export function SettingsModal() {
                 </Modal.Heading>
               </Modal.Header>
               <Modal.Body className="flex flex-col gap-6 p-6 bg-zinc-900">
-                <TextField>
-                  <Label>Keep Synq up-to-date</Label>
-                  <Button onClick={handleCheckForUpdates} isDisabled={isChecking} className="disabled:opacity-50">
+                <div className="flex items-center justify-between bg-zinc-950 p-4 rounded-lg border border-zinc-800">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-zinc-300">Keep Synq up-to-date</span>
+                    <span className="text-xs text-zinc-500 mt-1">
+                      Version {appVersion} {latestVersion ? (latestVersion.updateAvailable ? `-> ${latestVersion.latest}` : "(up to date)") : ""}
+                    </span>
+                  </div>
+                  <Button onClick={handleCheckForUpdates} isDisabled={isChecking} 
+                          className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs px-3 h-8 min-w-0 transition-colors">
                     {isChecking
                       ? (latestVersion?.updateAvailable ? "Applying Update..." : "Checking for Updates...")
                       : (latestVersion?.updateAvailable ? `Update to ${latestVersion.latest}` : "Check for Updates")}
                   </Button>
-                  <Description>Version {appVersion} {latestVersion ? (latestVersion.updateAvailable ? `-> ${latestVersion.latest}` : "(up to date)") : ""}</Description>
-                </TextField>
+                </div>
 
                 <TextField>
                   <Label className="text-sm font-medium text-zinc-300 mb-1">Display Name</Label>

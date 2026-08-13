@@ -2,6 +2,7 @@ import {useState, useEffect} from "react";
 import {AppLayout} from "./components/AppLayout";
 import {EditorWorkspace} from "./components/EditorWorkspace";
 import {WelcomeScreen} from "./components/WelcomeScreen";
+import {SettingsModal} from "./components/SettingsModal";
 
 function App() {
   const [view, setView] = useState<"welcome" | "editor">("welcome");
@@ -18,14 +19,17 @@ function App() {
     }
   }, []);
 
-  if (view === "welcome") {
-    return <WelcomeScreen onOpenEditor={() => setView("editor")}/>;
-  }
-
   return (
-    <AppLayout>
-      <EditorWorkspace/>
-    </AppLayout>
+    <>
+      <SettingsModal />
+      {view === "welcome" ? (
+        <WelcomeScreen onOpenEditor={() => setView("editor")}/>
+      ) : (
+        <AppLayout>
+          <EditorWorkspace/>
+        </AppLayout>
+      )}
+    </>
   );
 }
 

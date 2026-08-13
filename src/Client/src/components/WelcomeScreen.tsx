@@ -3,7 +3,7 @@ import {useState, useEffect} from "react";
 import {toast} from "sonner";
 import {api} from "../api";
 import {ConnectModal} from "./ConnectModal";
-import {ArrowRight, Minus, Square, X, Trash2, ExternalLink} from "lucide-react";
+import {ArrowRight, Minus, Square, X, Trash2, ExternalLink, Settings} from "lucide-react";
 import {Dropdown} from "@heroui/react";
 import {UserAvatar} from "./UserAvatar";
 
@@ -196,6 +196,16 @@ export function WelcomeScreen({onOpenEditor}: WelcomeScreenProps) {
           ) : (
             <div className="px-6 py-4 text-xs text-zinc-500">No recent notebooks</div>
           )}
+        </div>
+        <div className="p-4 border-t border-zinc-800/60 shrink-0">
+          <Button
+            variant="ghost"
+            onPress={() => window.dispatchEvent(new Event('open-settings'))}
+            className="w-full flex items-center justify-start text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 min-w-0"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Settings
+          </Button>
         </div>
       </div>
 
