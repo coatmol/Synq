@@ -144,3 +144,13 @@ body {
 .cm-editor th {
     background-color: #27272a;
 }
+
+/* Fix CodeMirror selection highlight being hidden by code block backgrounds */
+.cm-selectionLayer {
+    z-index: 10 !important;
+    pointer-events: none !important;
+}
+
+.cm-selectionBackground {
+    background-color: rgba(16, 185, 129, 0.3) !important;
+}
