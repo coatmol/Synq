@@ -40,6 +40,23 @@ export function EditorWorkspace() {
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [loadedFile, setLoadedFile] = useState<string | null>(null);
   const [initialMarkdown, setInitialMarkdown] = useState('');
+  const [zoomLevel, setZoomLevel] = useState(16);
+
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey && activeFileType === 'markdown') {
+        e.preventDefault();
+        setZoomLevel(prev => {
+          const delta = -e.deltaY * 0.01;
+          const newZoom = prev + delta;
+          return Math.max(8, Math.min(newZoom, 72));
+        });
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, [activeFileType]);
 
   useEffect(() => {
     if (!isLoading && activeFile && loadedFile !== activeFile) {
@@ -225,7 +242,7 @@ export function EditorWorkspace() {
                 <div
                   className="absolute top-4 right-6 text-[10px] font-bold text-zinc-700 uppercase tracking-widest pointer-events-none transition-colors z-10">Markdown
                 </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar bg-transparent p-6">
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-transparent p-6" style={{ '--editor-zoom': `${zoomLevel}px` } as React.CSSProperties}>
                   <AtomicCodeMirrorEditor
                     editorHandleRef={textareaRef}
                     documentId={activeFile ?? undefined}

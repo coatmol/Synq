@@ -40,6 +40,10 @@ body {
 }
 
 /* Global Markdown Editor Overrides */
+.cm-editor {
+    font-size: var(--editor-zoom, 16px) !important;
+}
+
 .cm-cursor {
     min-height: 20px !important;
 }
