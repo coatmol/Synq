@@ -308,7 +308,7 @@ export const api = {
 
   getWanPeers: async (): Promise<any[]> => {
     try {
-      const res = await fetch(`${BASE_URL}/api/wan/peers`);
+      const res = await fetch(`${BASE_URL}/api/wan/known-peers`);
       if (res.ok) {
         return await res.json();
       }

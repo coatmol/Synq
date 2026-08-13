@@ -11,7 +11,7 @@ namespace Desktop;
 
 public class LanDiscoveryService : IDisposable
 {
-    private readonly ConcurrentDictionary<string, (string IP, int Port)> _discoveredPeers = new();
+    private readonly ConcurrentDictionary<string, (string IP, int Port, string? WanNetworkId)> _discoveredPeers = new();
     private readonly DocumentManager _manager;
 
     private readonly PeerRouter _router;
@@ -80,7 +80,16 @@ public class LanDiscoveryService : IDisposable
                     using var http = new HttpClient();
                     http.Timeout = TimeSpan.FromSeconds(2);
                     var res = await http.GetAsync($"http://{ipStr}:{port}/api/settings");
-                    if (res.IsSuccessStatusCode) _discoveredPeers[e.ServiceInstanceName.ToString()] = (ipStr, port);
+                    if (res.IsSuccessStatusCode)
+                    {
+                        var json = await res.Content.ReadAsStringAsync();
+                        var data = JsonDocument.Parse(json);
+                        var remoteId = data.RootElement.TryGetProperty("wanNetworkId", out var idProp)
+                            ? idProp.GetString()
+                            : null;
+
+                        _discoveredPeers[e.ServiceInstanceName.ToString()] = (ipStr, port, remoteId);
+                    }
                 }
                 catch
                 {
@@ -106,7 +115,20 @@ public class LanDiscoveryService : IDisposable
                 try
                 {
                     var res = await http.GetAsync($"http://{peer.IP}:{peer.Port}/api/settings");
-                    if (!res.IsSuccessStatusCode) _discoveredPeers.TryRemove(key, out _);
+                    if (res.IsSuccessStatusCode)
+                    {
+                        var json = await res.Content.ReadAsStringAsync();
+                        var data = JsonDocument.Parse(json);
+                        var remoteId = data.RootElement.TryGetProperty("wanNetworkId", out var idProp)
+                            ? idProp.GetString()
+                            : null;
+
+                        _discoveredPeers[key] = (peer.IP, peer.Port, remoteId);
+                    }
+                    else
+                    {
+                        _discoveredPeers.TryRemove(key, out _);
+                    }
                 }
                 catch
                 {
@@ -148,9 +170,18 @@ public class LanDiscoveryService : IDisposable
         _mdns?.Stop();
     }
 
-    public IEnumerable<object> GetDiscoveredPeers()
+    public IEnumerable<object> GetDiscoveredPeers(bool restrictToSameNetworkId = false)
     {
-        return _discoveredPeers.Select((kvp, index) =>
+        string? localId = null;
+        if (restrictToSameNetworkId && !string.IsNullOrEmpty(_workspaceState.CurrentFolder))
+            localId = _syncManager.LoadManifest(_workspaceState.CurrentFolder).WanNetworkId;
+
+        var peers = _discoveredPeers.ToList();
+
+        if (restrictToSameNetworkId && !string.IsNullOrEmpty(localId))
+            peers = peers.Where(kvp => kvp.Value.WanNetworkId == localId).ToList();
+
+        return peers.Select((kvp, index) =>
         {
             var actualName = kvp.Key;
             var lastDash = kvp.Key.LastIndexOf("-");

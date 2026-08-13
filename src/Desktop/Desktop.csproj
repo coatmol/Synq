@@ -19,6 +19,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10"/>
+        <PackageReference Include="MQTTnet" Version="5.2.0.1603"/>
         <PackageReference Include="Photino.NET" Version="4.0.16"/>
         <PackageReference Include="SIPSorcery" Version="10.0.13"/>
         <PackageReference Include="Velopack" Version="1.2.0"/>

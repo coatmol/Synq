@@ -12,7 +12,7 @@ public class DocumentManager
     public DocumentManager(WorkspaceState state)
     {
         _state = state;
-        _peerId = Environment.MachineName;
+        _peerId = state.Settings.Username + "-" + Environment.MachineName + "-" + Guid.NewGuid().ToString("N")[..8];
         _state.FolderChanged += () => _documents.Clear();
     }
 

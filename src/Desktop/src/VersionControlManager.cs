@@ -1,20 +1,15 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Engine;
-using System;
-using System.Threading.Tasks;
 
 namespace Desktop;
 
 public class VersionControlManager
 {
-    private readonly WorkspaceState _state;
     private readonly SemaphoreSlim _lock = new(1, 1);
+    private readonly WorkspaceState _state;
 
     public VersionControlManager(WorkspaceState state)
     {
@@ -28,8 +23,9 @@ public class VersionControlManager
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        await File.WriteAllTextAsync(tempFile, JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(tempFile, filePath, overwrite: true);
+        await File.WriteAllTextAsync(tempFile,
+            JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true }));
+        File.Move(tempFile, filePath, true);
     }
 
     public async Task<string?> CommitFileAsync(string fileName, string authorName, string? message = null)
@@ -56,8 +52,9 @@ public class VersionControlManager
         {
             Dictionary<string, string> index = new();
             if (File.Exists(indexFile))
-                index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile)) ??
-                        new Dictionary<string, string>();
+                index =
+                    JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile)) ??
+                    new Dictionary<string, string>();
 
             if (!index.TryGetValue(fileName, out var uuid))
             {
@@ -83,7 +80,7 @@ public class VersionControlManager
                 history = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile)) ??
                           new CommitHistory();
 
-            if (history.Head != null && history.Commits.LastOrDefault()?.ContentHash == contentHash) 
+            if (history.Head != null && history.Commits.LastOrDefault()?.ContentHash == contentHash)
                 return history.Head;
 
             var commitId = Guid.NewGuid().ToString("N");
@@ -133,8 +130,8 @@ public class VersionControlManager
             if (!Directory.Exists(objectsDir)) Directory.CreateDirectory(objectsDir);
 
             var commitId = Guid.NewGuid().ToString("N");
-            var contentHash = ""; 
-            
+            var contentHash = "";
+
             var commitsFile = Path.Combine(historyDir, "commits.json");
             CommitHistory history = new();
             if (File.Exists(commitsFile))
@@ -170,7 +167,7 @@ public class VersionControlManager
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return;
 
         var indexFile = Path.Combine(_state.CurrentFolder, ".synq", "file_index.json");
-        
+
         await _lock.WaitAsync();
         try
         {
@@ -185,18 +182,13 @@ public class VersionControlManager
             var changed = false;
 
             foreach (var kvp in remoteIndex)
-            {
                 if (!localIndex.ContainsKey(kvp.Key))
                 {
                     localIndex[kvp.Key] = kvp.Value;
                     changed = true;
                 }
-            }
 
-            if (changed)
-            {
-                await AtomicWriteJsonAsync(indexFile, localIndex);
-            }
+            if (changed) await AtomicWriteJsonAsync(indexFile, localIndex);
         }
         finally
         {
@@ -207,10 +199,10 @@ public class VersionControlManager
     public async Task MergeCommitsJsonAsync(string uuid, string remoteCommitsJsonContent)
     {
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return;
-        if (!System.Text.RegularExpressions.Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return;
+        if (!Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return;
 
         var commitsFile = Path.Combine(_state.CurrentFolder, ".synq", "history", uuid, "commits.json");
-        
+
         await _lock.WaitAsync();
         try
         {
@@ -219,7 +211,8 @@ public class VersionControlManager
                 localHistory = JsonSerializer.Deserialize<CommitHistory>(await File.ReadAllTextAsync(commitsFile)) ??
                                new CommitHistory();
 
-            var remoteHistory = JsonSerializer.Deserialize<CommitHistory>(remoteCommitsJsonContent) ?? new CommitHistory();
+            var remoteHistory = JsonSerializer.Deserialize<CommitHistory>(remoteCommitsJsonContent) ??
+                                new CommitHistory();
             var changed = false;
 
             var localCommitIds = new HashSet<string>(localHistory.Commits.Select(c => c.CommitId));
