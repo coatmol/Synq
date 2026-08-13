@@ -156,7 +156,7 @@ export function VersionHistory() {
                       <Tooltip delay={500}>
                         <Tooltip.Trigger>
                           <span
-                            className={`text-[12px] font-medium truncate ${isSelected ? 'text-zinc-100' : 'text-zinc-300'}`}>
+                            className={`text-[12px] flex items-start font-medium truncate ${isSelected ? 'text-zinc-100' : 'text-zinc-300'}`}>
                             {commit.message || (commit.isDeleted ? `Deleted ${commit.fileName.split('/').pop()}` : `Edited ${commit.fileName.split('/').pop()}`)}
                           </span>
                         </Tooltip.Trigger>
