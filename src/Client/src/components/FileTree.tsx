@@ -286,7 +286,6 @@ export function FileTree() {
                   </div>
                   <div className="flex flex-col min-w-0">
                     <span className="text-[13px] font-medium truncate">Rename</span>
-                    <span className="text-[11px] text-zinc-500 truncate">Change the name of this item</span>
                   </div>
                 </Dropdown.Item>
                 <Dropdown.Item id="openNative" textValue="Open in Explorer" onPress={() => handleNativeOpen(node)}
@@ -296,7 +295,6 @@ export function FileTree() {
                   </div>
                   <div className="flex flex-col min-w-0">
                     <span className="text-[13px] font-medium truncate">Open in Explorer</span>
-                    <span className="text-[11px] text-zinc-500 truncate">Reveal in your native OS</span>
                   </div>
                 </Dropdown.Item>
                 {node.type !== NodeType.Folder && (
@@ -310,7 +308,6 @@ export function FileTree() {
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span className="text-[13px] font-medium truncate">View Version History</span>
-                      <span className="text-[11px] text-zinc-500 truncate">See past commits and changes</span>
                     </div>
                   </Dropdown.Item>
                 )}
@@ -327,7 +324,6 @@ export function FileTree() {
                   </div>
                   <div className="flex flex-col min-w-0">
                     <span className="text-[13px] font-medium truncate">Delete</span>
-                    <span className="text-[11px] text-red-400/70 truncate">Move this item to trash</span>
                   </div>
                 </Dropdown.Item>
               </Dropdown.Section>

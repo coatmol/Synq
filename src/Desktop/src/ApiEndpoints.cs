@@ -636,7 +636,7 @@ public static class ApiEndpoints
                 }
             }
 
-            var sorted = allCommits.OrderByDescending(c => ((dynamic)c).Timestamp).ToList();
+            var sorted = allCommits.OrderByDescending(c => ((dynamic)c).timestamp).ToList();
             return Results.Ok(new { commits = sorted });
         });
 

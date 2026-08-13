@@ -189,7 +189,6 @@ export function VersionHistory() {
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-[13px] font-medium truncate">Copy File Contents</span>
-                        <span className="text-[11px] text-zinc-500 truncate">Copy full content at this version</span>
                       </div>
                     </Dropdown.Item>
                     <Dropdown.Item id="copyId" textValue="Copy Commit ID" onPress={() => handleCopyId(commit)}
@@ -199,7 +198,6 @@ export function VersionHistory() {
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-[13px] font-medium truncate">Copy Commit ID</span>
-                        <span className="text-[11px] text-zinc-500 truncate">Copy the unique SHA hash</span>
                       </div>
                     </Dropdown.Item>
                   </Dropdown.Section>
@@ -215,7 +213,6 @@ export function VersionHistory() {
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-[13px] font-medium truncate">Restore This Version</span>
-                        <span className="text-[11px] text-emerald-400/70 truncate">Revert file to this exact state</span>
                       </div>
                     </Dropdown.Item>
                   </Dropdown.Section>

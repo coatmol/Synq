@@ -34,7 +34,6 @@ export function FileMenu() {
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-[13px] font-medium truncate">New Document</span>
-                <span className="text-[11px] text-zinc-500 truncate">Create a new file in workspace</span>
               </div>
             </Dropdown.Item>
             <Dropdown.Item key="open" textValue="Open Folder..." onPress={() => sendMessage("openFolder")}
@@ -44,7 +43,6 @@ export function FileMenu() {
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-[13px] font-medium truncate">Open Folder...</span>
-                <span className="text-[11px] text-zinc-500 truncate">Open a workspace folder</span>
               </div>
             </Dropdown.Item>
           </Dropdown.Section>
@@ -60,7 +58,6 @@ export function FileMenu() {
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-[13px] font-medium truncate">Settings...</span>
-                <span className="text-[11px] text-zinc-500 truncate">Manage app preferences</span>
               </div>
             </Dropdown.Item>
           </Dropdown.Section>
@@ -79,7 +76,6 @@ export function FileMenu() {
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-[13px] font-medium truncate">Close folder</span>
-                <span className="text-[11px] text-red-400/70 truncate">Close current workspace</span>
               </div>
             </Dropdown.Item>
             <Dropdown.Item key="quit" textValue="Quit Synq" onPress={() => sendMessage("close")}
