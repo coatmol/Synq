@@ -164,6 +164,24 @@ public class PeerSyncHandler
         if (remoteManifest == null || string.IsNullOrEmpty(_state.CurrentFolder)) return;
 
         var localManifest = _syncManager.InitializeLocalFolder();
+        
+        try
+        {
+            if (!string.IsNullOrEmpty(remoteManifest.WanNetworkId) && 
+                string.Compare(remoteManifest.WanNetworkId, localManifest.WanNetworkId, StringComparison.Ordinal) < 0)
+            {
+                localManifest.WanNetworkId = remoteManifest.WanNetworkId;
+                _syncManager.SaveManifest(_state.CurrentFolder, localManifest);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WAN] Failed to update WanNetworkId: {ex.Message}");
+        }
+
+        if (remoteManifest.Files == null)
+            remoteManifest.Files = new Dictionary<string, ManifestFileEntry>();
+
         var allPaths = localManifest.Files.Values.Select(v => v.RelativePath)
             .Union(remoteManifest.Files.Values.Select(v => v.RelativePath))
             .Distinct();

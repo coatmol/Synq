@@ -14,18 +14,19 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Content Include="..\..\Assets\Synq3.ico" CopyToOutputDirectory="PreserveNewest"/>
+        <Content Include="..\..\Assets\Synq3.ico" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10"/>
-        <PackageReference Include="Photino.NET" Version="4.0.16"/>
-        <PackageReference Include="SIPSorcery" Version="10.0.13"/>
-        <PackageReference Include="Velopack" Version="1.2.0"/>
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10" />
+        <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
+        <PackageReference Include="Photino.NET" Version="4.0.16" />
+        <PackageReference Include="SIPSorcery" Version="10.0.13" />
+        <PackageReference Include="Velopack" Version="1.2.0" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Engine\Engine.csproj"/>
+        <ProjectReference Include="..\Engine\Engine.csproj" />
     </ItemGroup>
 
     <PropertyGroup>
@@ -42,23 +43,23 @@
 
     <!-- Run build using the detected package manager -->
     <Target Name="BuildFrontend" BeforeTargets="Build">
-        <Message Importance="high" Text="Building frontend with $(NodePackageManager)..."/>
-        <Exec Command="$(NodePackageManager) install" WorkingDirectory="$(FrontendRoot)" Condition="!Exists('$(FrontendRoot)node_modules')"/>
-        <Exec Command="$(NodePackageManager) run build" WorkingDirectory="$(FrontendRoot)"/>
+        <Message Importance="high" Text="Building frontend with $(NodePackageManager)..." />
+        <Exec Command="$(NodePackageManager) install" WorkingDirectory="$(FrontendRoot)" Condition="!Exists('$(FrontendRoot)node_modules')" />
+        <Exec Command="$(NodePackageManager) run build" WorkingDirectory="$(FrontendRoot)" />
     </Target>
 
     <!-- Copy the Vite dist folder to the C# output directory -->
     <Target Name="CopyFrontendToOutput" AfterTargets="BuildFrontend;Build">
         <ItemGroup>
-            <FrontendFiles Include="$(FrontendRoot)dist\**\*.*"/>
+            <FrontendFiles Include="$(FrontendRoot)dist\**\*.*" />
         </ItemGroup>
-        <Copy SourceFiles="@(FrontendFiles)" DestinationFolder="$(OutDir)wwwroot\%(RecursiveDir)" SkipUnchangedFiles="true"/>
+        <Copy SourceFiles="@(FrontendFiles)" DestinationFolder="$(OutDir)wwwroot\%(RecursiveDir)" SkipUnchangedFiles="true" />
     </Target>
 
     <!-- Include frontend dist files in the publish output -->
     <Target Name="PublishFrontend" BeforeTargets="ComputeFilesToPublish">
         <ItemGroup>
-            <DistFiles Include="$(FrontendRoot)dist\**\*.*"/>
+            <DistFiles Include="$(FrontendRoot)dist\**\*.*" />
             <ResolvedFileToPublish Include="@(DistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
                 <RelativePath>wwwroot\%(RecursiveDir)%(FileName)%(Extension)</RelativePath>
                 <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

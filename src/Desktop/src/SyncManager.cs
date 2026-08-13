@@ -20,9 +20,20 @@ public class ManifestFileEntry
     [JsonPropertyName("isDirectory")] public bool IsDirectory { get; set; }
 }
 
+public class KnownWanPeer
+{
+    [JsonPropertyName("peerId")] public string PeerId { get; set; } = string.Empty;
+    [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("lastSeen")] public long LastSeen { get; set; }
+}
+
 public class SyncManifest
 {
     [JsonPropertyName("peerId")] public string PeerId { get; set; } = Environment.MachineName;
+
+    [JsonPropertyName("wanNetworkId")] public string WanNetworkId { get; set; } = string.Empty;
+
+    [JsonPropertyName("knownWanPeers")] public Dictionary<string, KnownWanPeer> KnownWanPeers { get; set; } = new();
 
     [JsonPropertyName("files")] public Dictionary<string, ManifestFileEntry> Files { get; set; } = new();
 }
@@ -58,18 +69,26 @@ public class SyncManager
     public SyncManifest LoadManifest(string folderPath)
     {
         var path = GetManifestPath(folderPath);
+        SyncManifest manifest = null;
         if (File.Exists(path))
             try
             {
                 var content = File.ReadAllText(path);
-                var manifest = JsonSerializer.Deserialize<SyncManifest>(content);
-                if (manifest != null) return manifest;
+                manifest = JsonSerializer.Deserialize<SyncManifest>(content);
             }
             catch
             {
             }
 
-        return new SyncManifest();
+        if (manifest == null) manifest = new SyncManifest();
+        
+        if (string.IsNullOrEmpty(manifest.WanNetworkId))
+        {
+            manifest.WanNetworkId = Guid.CreateVersion7().ToString();
+            SaveManifest(folderPath, manifest);
+        }
+
+        return manifest;
     }
 
     public void SaveManifest(string folderPath, SyncManifest manifest)
@@ -189,6 +208,21 @@ public class SyncManager
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return;
 
         var localManifest = InitializeLocalFolder();
+        
+        try
+        {
+            if (!string.IsNullOrEmpty(remoteManifest.WanNetworkId) && 
+                string.Compare(remoteManifest.WanNetworkId, localManifest.WanNetworkId, StringComparison.Ordinal) < 0)
+            {
+                localManifest.WanNetworkId = remoteManifest.WanNetworkId;
+                SaveManifest(_state.CurrentFolder, localManifest);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[LAN] Failed to update WanNetworkId: {ex.Message}");
+        }
+
         var allPaths = localManifest.Files.Values.Select(v => v.RelativePath)
             .Union(remoteManifest.Files.Values.Select(v => v.RelativePath))
             .Distinct();

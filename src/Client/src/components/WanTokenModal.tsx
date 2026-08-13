@@ -102,6 +102,17 @@ export function WanTokenModal({isOpen, onClose}: { isOpen: boolean, onClose: () 
                         port-forwarding to connect.</p>
                     )}
                   </div>
+                  
+                  <div className="bg-emerald-950/30 p-3 rounded-lg border border-emerald-900/50 flex items-center justify-between">
+                     <span className="text-sm font-medium text-emerald-400 flex items-center gap-2">
+                       <span className="relative flex h-3 w-3">
+                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                         <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                       </span>
+                       Auto-Discovering WAN Peers
+                     </span>
+                     <span className="text-[10px] text-emerald-600 font-mono uppercase bg-emerald-950 px-2 py-0.5 rounded border border-emerald-900">E2EE MQTT</span>
+                  </div>
 
                   {step === "preflight" && (
                     <div className="flex flex-col gap-4">

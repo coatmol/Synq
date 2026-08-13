@@ -227,14 +227,18 @@ internal class Program
         builder.Services.AddSingleton<WebRtcPeerManager>();
         builder.Services.AddSingleton<HeartbeatService>();
         builder.Services.AddSingleton<VersionControlManager>();
+        builder.Services.AddSingleton<AutoWanSignalingService>();
 
         builder.Services.AddCors(options =>
         {
-            options.AddPolicy("AllowFrontend",
-                p => p.WithOrigins("http://127.0.0.1:5173", "http://localhost:5173").AllowAnyHeader().AllowAnyMethod()
-                    .AllowCredentials());
-        });
-        builder.Services.AddSignalR(options => { options.MaximumReceiveMessageSize = null; });
+            options.AddPolicy("AllowFrontend", policy =>
+            {
+                policy.SetIsOriginAllowed(_ => true)
+                      .AllowAnyHeader()
+                      .AllowAnyMethod()
+                      .AllowCredentials();
+            });
+        });builder.Services.AddSignalR(options => { options.MaximumReceiveMessageSize = null; });
 
         var app = builder.Build();
 
@@ -244,6 +248,9 @@ internal class Program
 
         var heartbeat = app.Services.GetRequiredService<HeartbeatService>();
         heartbeat.Start();
+        
+        // Start the Auto WAN Signaling service
+        _ = app.Services.GetRequiredService<AutoWanSignalingService>();
 
         app.UseCors("AllowFrontend");
 

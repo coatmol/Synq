@@ -382,7 +382,7 @@ public static class ApiEndpoints
         });
 
         app.MapGet("/api/peers",
-            (LanDiscoveryService discovery) => { return Results.Ok(discovery.GetDiscoveredPeers()); });
+            (LanDiscoveryService discovery) => { return Results.Ok(discovery.GetDiscoveredPeers(true)); });
 
         app.MapPost("/api/connect",
             async (HttpRequest req, LanDiscoveryService discovery, IHubContext<DocumentHub> hubContext) =>
@@ -431,24 +431,32 @@ public static class ApiEndpoints
             return Results.Ok(new { ips = ips.Distinct(), port = discovery.Port });
         });
 
-        app.MapGet("/api/settings", (HttpContext context, WorkspaceState state) =>
+        app.MapGet("/api/settings", (HttpContext context, WorkspaceState state, SyncManager sync) =>
         {
             var isLocal = !state.IsHeadless && (context.Connection.RemoteIpAddress == null ||
                                                 IPAddress.IsLoopback(context.Connection.RemoteIpAddress) ||
                                                 context.Connection.RemoteIpAddress.ToString() ==
                                                 context.Connection.LocalIpAddress?.ToString());
 
+            string networkId = "";
+            if (!string.IsNullOrEmpty(state.CurrentFolder))
+            {
+                networkId = sync.LoadManifest(state.CurrentFolder).WanNetworkId;
+            }
+
             if (isLocal)
                 return Results.Ok(new
                 {
                     username = state.Settings.Username,
                     password = state.Settings.Password,
-                    recentFolders = state.Settings.RecentFolders
+                    recentFolders = state.Settings.RecentFolders,
+                    wanNetworkId = networkId
                 });
 
             return Results.Ok(new
             {
-                username = state.Settings.Username
+                username = state.Settings.Username,
+                wanNetworkId = networkId
             });
         });
 
@@ -510,6 +518,47 @@ public static class ApiEndpoints
 
         app.MapGet("/api/wan/peers", (WebRtcPeerManager wrtc) =>
             Results.Ok(wrtc.GetConnectedWanPeers()));
+
+        app.MapGet("/api/wan/known-peers", (WebRtcPeerManager wrtc, SyncManager sync, WorkspaceState state) =>
+        {
+            var folder = state.CurrentFolder;
+            if (string.IsNullOrEmpty(folder)) return Results.Ok(new object[0]);
+
+            var manifest = sync.LoadManifest(folder);
+            var connectedPeers = wrtc.GetConnectedWanPeers().ToDictionary(
+                p => (string)p.GetType().GetProperty("id")!.GetValue(p)!);
+
+            var result = new List<object>();
+            
+            // Add known peers
+            foreach (var kp in manifest.KnownWanPeers.Values)
+            {
+                if (connectedPeers.ContainsKey(kp.PeerId))
+                {
+                    result.Add(connectedPeers[kp.PeerId]);
+                    connectedPeers.Remove(kp.PeerId);
+                }
+                else
+                {
+                    result.Add(new
+                    {
+                        id = kp.PeerId,
+                        name = kp.Name,
+                        status = "offline",
+                        transport = "wan",
+                        init = kp.PeerId.Length >= 2 ? kp.PeerId[..2].ToUpper() : "??"
+                    });
+                }
+            }
+
+            // Add any newly connected peers not yet saved
+            foreach (var p in connectedPeers.Values)
+            {
+                result.Add(p);
+            }
+
+            return Results.Ok(result);
+        });
 
         app.MapGet("/api/update", async (HttpRequest req, WebRtcPeerManager wrtc) =>
         {

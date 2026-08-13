@@ -19,6 +19,7 @@ builder.Services.AddSingleton<StunDiagnosticService>();
 builder.Services.AddSingleton<WebRtcPeerManager>();
 builder.Services.AddSingleton<HeartbeatService>();
 builder.Services.AddSingleton<VersionControlManager>();
+builder.Services.AddSingleton<AutoWanSignalingService>();
 builder.Services.AddSignalR(options => { options.MaximumReceiveMessageSize = null; });
 builder.Services.AddCors(options =>
 {
@@ -33,6 +34,9 @@ _ = Task.Run(() => stunDiag.RunDiagnosticAsync());
 
 var heartbeat = app.Services.GetRequiredService<HeartbeatService>();
 heartbeat.Start();
+
+// Start the Auto WAN Signaling service
+_ = app.Services.GetRequiredService<AutoWanSignalingService>();
 
 app.UseCors("AllowAll");
 
