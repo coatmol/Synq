@@ -164,10 +164,10 @@ public class PeerSyncHandler
         if (remoteManifest == null || string.IsNullOrEmpty(_state.CurrentFolder)) return;
 
         var localManifest = _syncManager.InitializeLocalFolder();
-        
+
         try
         {
-            if (!string.IsNullOrEmpty(remoteManifest.WanNetworkId) && 
+            if (!string.IsNullOrEmpty(remoteManifest.WanNetworkId) &&
                 string.Compare(remoteManifest.WanNetworkId, localManifest.WanNetworkId, StringComparison.Ordinal) < 0)
             {
                 localManifest.WanNetworkId = remoteManifest.WanNetworkId;

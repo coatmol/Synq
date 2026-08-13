@@ -238,9 +238,12 @@ public class WebRtcPeerManager
     {
         if (peer.DataChannel == null) return;
 
-        Action onOpenLogic = () =>
+        var initialized = 0;
+        var onOpenLogic = () =>
         {
+            if (Interlocked.Exchange(ref initialized, 1) != 0) return;
             Console.WriteLine($"[WAN] DataChannel open with {peer.PeerId}");
+
             _ = BroadcastPeerDiscovery();
 
             _ = _router.SendToAsync(peer.PeerId, new MeshEnvelope
@@ -250,14 +253,9 @@ public class WebRtcPeerManager
             });
         };
 
+        peer.DataChannel.onopen += onOpenLogic;
         if (peer.DataChannel.readyState == RTCDataChannelState.open)
-        {
             onOpenLogic();
-        }
-        else
-        {
-            peer.DataChannel.onopen += onOpenLogic;
-        }
 
         peer.DataChannel.onmessage += (dc, protocol, data) =>
         {
@@ -272,14 +270,12 @@ public class WebRtcPeerManager
                 _ = _router.SendToAsync(envelope.TargetId, envelope);
                 return;
             }
-            try
-            {
-                _ = HandleIncomingEnvelope(peer.PeerId, envelope);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[WAN] Error handling envelope: {ex.Message}");
-            }
+
+            _ = HandleIncomingEnvelope(peer.PeerId, envelope)
+                .ContinueWith(task =>
+                        Console.WriteLine(
+                            $"[WAN] Error handling envelope: {task.Exception?.GetBaseException().Message}"),
+                    TaskContinuationOptions.OnlyOnFaulted);
         };
 
         peer.DataChannel.onclose += () =>

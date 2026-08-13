@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Engine;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -72,32 +73,34 @@ public static class ApiEndpoints
             return Results.NotFound();
         });
 
-        app.MapPost("/api/files/update", async (HttpRequest req, WorkspaceState state, DocumentManager docManager, VersionControlManager vc, SyncManager sync, IHubContext<DocumentHub> hubContext) =>
+        app.MapPost("/api/files/update", async (HttpRequest req, WorkspaceState state, DocumentManager docManager,
+            VersionControlManager vc, SyncManager sync, IHubContext<DocumentHub> hubContext) =>
         {
             using var reader = new StreamReader(req.Body);
             var body = await reader.ReadToEndAsync();
             var data = JsonDocument.Parse(body);
             var filename = data.RootElement.GetProperty("filename").GetString();
             var content = data.RootElement.GetProperty("content").GetString();
-            
+
             var path = PathUtils.GetSafePath(state.CurrentFolder, filename!);
             if (path == null) return Results.BadRequest();
-            
+
             var isDoc = filename!.EndsWith(".md") || filename.EndsWith(".excalidraw");
             if (File.Exists(path) && isDoc) await vc.CommitFileAsync(filename, "Auto-Save (Before Restore)");
-            
+
             await File.WriteAllTextAsync(path, content!);
             var doc = docManager.GetOrCreateDocument(filename!);
             doc.OverwriteFromContent(content!);
-            
+
             if (isDoc) await vc.CommitFileAsync(filename, state.Settings.Username);
-            
+
             sync.InitializeLocalFolder();
             await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, content);
             return Results.Ok();
         });
 
-        app.MapPost("/api/files/restore", async (HttpRequest req, WorkspaceState state, DocumentManager docManager, VersionControlManager vc, SyncManager sync, IHubContext<DocumentHub> hubContext) =>
+        app.MapPost("/api/files/restore", async (HttpRequest req, WorkspaceState state, DocumentManager docManager,
+            VersionControlManager vc, SyncManager sync, IHubContext<DocumentHub> hubContext) =>
         {
             using var reader = new StreamReader(req.Body);
             var body = await reader.ReadToEndAsync();
@@ -105,19 +108,19 @@ public static class ApiEndpoints
             var filename = data.RootElement.GetProperty("filename").GetString();
             var content = data.RootElement.GetProperty("content").GetString();
             var commitId = data.RootElement.GetProperty("commitId").GetString();
-            
+
             var path = PathUtils.GetSafePath(state.CurrentFolder, filename!);
             if (path == null) return Results.BadRequest();
-            
+
             var isDoc = filename!.EndsWith(".md") || filename.EndsWith(".excalidraw");
             if (File.Exists(path) && isDoc) await vc.CommitFileAsync(filename, "Auto-Save (Before Restore)");
-            
+
             await File.WriteAllTextAsync(path, content!);
             var doc = docManager.GetOrCreateDocument(filename!);
             doc.OverwriteFromContent(content!);
-            
+
             if (isDoc) await vc.CommitFileAsync(filename, state.Settings.Username, $"Restored from {commitId}");
-            
+
             sync.InitializeLocalFolder();
             await hubContext.Clients.All.SendAsync("DocumentUpdated", filename, content);
             return Results.Ok();
@@ -163,7 +166,7 @@ public static class ApiEndpoints
                 if (isSynqHistory && isCommitsJson)
                 {
                     var uuid = filename.Split(new[] { '/', '\\' })[2];
-                    if (!System.Text.RegularExpressions.Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return Results.BadRequest();
+                    if (!Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return Results.BadRequest();
                     await vc.MergeCommitsJsonAsync(uuid, content!);
                     sync.InitializeLocalFolder();
                     return Results.Ok();
@@ -438,11 +441,9 @@ public static class ApiEndpoints
                                                 context.Connection.RemoteIpAddress.ToString() ==
                                                 context.Connection.LocalIpAddress?.ToString());
 
-            string networkId = "";
+            var networkId = "";
             if (!string.IsNullOrEmpty(state.CurrentFolder))
-            {
                 networkId = sync.LoadManifest(state.CurrentFolder).WanNetworkId;
-            }
 
             if (isLocal)
                 return Results.Ok(new
@@ -525,14 +526,13 @@ public static class ApiEndpoints
             if (string.IsNullOrEmpty(folder)) return Results.Ok(new object[0]);
 
             var manifest = sync.LoadManifest(folder);
-            var connectedPeers = wrtc.GetConnectedWanPeers().ToDictionary(
-                p => (string)p.GetType().GetProperty("id")!.GetValue(p)!);
+            var connectedPeers = wrtc.GetConnectedWanPeers()
+                .ToDictionary(p => (string)p.GetType().GetProperty("id")!.GetValue(p)!);
 
             var result = new List<object>();
-            
+
             // Add known peers
             foreach (var kp in manifest.KnownWanPeers.Values)
-            {
                 if (connectedPeers.ContainsKey(kp.PeerId))
                 {
                     result.Add(connectedPeers[kp.PeerId]);
@@ -549,13 +549,9 @@ public static class ApiEndpoints
                         init = kp.PeerId.Length >= 2 ? kp.PeerId[..2].ToUpper() : "??"
                     });
                 }
-            }
 
             // Add any newly connected peers not yet saved
-            foreach (var p in connectedPeers.Values)
-            {
-                result.Add(p);
-            }
+            foreach (var p in connectedPeers.Values) result.Add(p);
 
             return Results.Ok(result);
         });
@@ -659,7 +655,9 @@ public static class ApiEndpoints
                             foreach (var c in history.Commits)
                                 allCommits.Add(new
                                 {
-                                    commitId = c.CommitId, contentHash = c.ContentHash, parentId = c.ParentId, timestamp = c.Timestamp, authorName = c.AuthorName, message = c.Message, isDeleted = c.IsDeleted, fileName
+                                    commitId = c.CommitId, contentHash = c.ContentHash, parentId = c.ParentId,
+                                    timestamp = c.Timestamp, authorName = c.AuthorName, message = c.Message,
+                                    isDeleted = c.IsDeleted, fileName
                                 });
                     }
                 }
@@ -679,7 +677,9 @@ public static class ApiEndpoints
                             foreach (var c in history.Commits)
                                 allCommits.Add(new
                                 {
-                                    commitId = c.CommitId, contentHash = c.ContentHash, parentId = c.ParentId, timestamp = c.Timestamp, authorName = c.AuthorName, message = c.Message, isDeleted = c.IsDeleted, fileName = fName
+                                    commitId = c.CommitId, contentHash = c.ContentHash, parentId = c.ParentId,
+                                    timestamp = c.Timestamp, authorName = c.AuthorName, message = c.Message,
+                                    isDeleted = c.IsDeleted, fileName = fName
                                 });
                     }
                 }
@@ -699,7 +699,7 @@ public static class ApiEndpoints
             var index = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(indexFile));
             if (index == null || !index.TryGetValue(fileName, out var uuid)) return Results.NotFound();
 
-            if (!System.Text.RegularExpressions.Regex.IsMatch(commitId, "^([0-9a-f]{32})$"))
+            if (!Regex.IsMatch(commitId, "^([0-9a-f]{32})$"))
                 return Results.BadRequest();
 
             var commitsFile = Path.Combine(dotSynq, "history", uuid, "commits.json");

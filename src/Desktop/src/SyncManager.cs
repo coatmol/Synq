@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Desktop;
@@ -74,14 +75,17 @@ public class SyncManager
             try
             {
                 var content = File.ReadAllText(path);
-                manifest = JsonSerializer.Deserialize<SyncManifest>(content);
+                var loaded = JsonSerializer.Deserialize<SyncManifest>(content);
+                if (loaded != null) manifest = loaded;
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"[Sync] Failed to read manifest: {ex.Message}");
+                throw new IOException("Manifest file is corrupted or inaccessible", ex);
             }
 
         if (manifest == null) manifest = new SyncManifest();
-        
+
         if (string.IsNullOrEmpty(manifest.WanNetworkId))
         {
             manifest.WanNetworkId = Guid.CreateVersion7().ToString();
@@ -95,7 +99,10 @@ public class SyncManager
     {
         var path = GetManifestPath(folderPath);
         var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(path, json);
+
+        var tempPath = path + ".tmp";
+        File.WriteAllText(tempPath, json);
+        File.Move(tempPath, path, true);
     }
 
     private string ComputeHash(string filePath)
@@ -208,10 +215,10 @@ public class SyncManager
         if (string.IsNullOrEmpty(_state.CurrentFolder)) return;
 
         var localManifest = InitializeLocalFolder();
-        
+
         try
         {
-            if (!string.IsNullOrEmpty(remoteManifest.WanNetworkId) && 
+            if (!string.IsNullOrEmpty(remoteManifest.WanNetworkId) &&
                 string.Compare(remoteManifest.WanNetworkId, localManifest.WanNetworkId, StringComparison.Ordinal) < 0)
             {
                 localManifest.WanNetworkId = remoteManifest.WanNetworkId;
@@ -347,7 +354,7 @@ public class SyncManager
         if (isSynqHistory && isCommitsJson)
         {
             var uuid = relativePath.Split(new[] { '/', '\\' })[2];
-            if (!System.Text.RegularExpressions.Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return;
+            if (!Regex.IsMatch(uuid, "^[0-9a-f]{32}$")) return;
             await _vc.MergeCommitsJsonAsync(uuid, content);
             return;
         }

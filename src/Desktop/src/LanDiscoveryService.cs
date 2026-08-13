@@ -84,8 +84,10 @@ public class LanDiscoveryService : IDisposable
                     {
                         var json = await res.Content.ReadAsStringAsync();
                         var data = JsonDocument.Parse(json);
-                        var remoteId = data.RootElement.TryGetProperty("wanNetworkId", out var idProp) ? idProp.GetString() : null;
-                        
+                        var remoteId = data.RootElement.TryGetProperty("wanNetworkId", out var idProp)
+                            ? idProp.GetString()
+                            : null;
+
                         _discoveredPeers[e.ServiceInstanceName.ToString()] = (ipStr, port, remoteId);
                     }
                 }
@@ -117,8 +119,10 @@ public class LanDiscoveryService : IDisposable
                     {
                         var json = await res.Content.ReadAsStringAsync();
                         var data = JsonDocument.Parse(json);
-                        var remoteId = data.RootElement.TryGetProperty("wanNetworkId", out var idProp) ? idProp.GetString() : null;
-                        
+                        var remoteId = data.RootElement.TryGetProperty("wanNetworkId", out var idProp)
+                            ? idProp.GetString()
+                            : null;
+
                         _discoveredPeers[key] = (peer.IP, peer.Port, remoteId);
                     }
                     else
@@ -170,16 +174,12 @@ public class LanDiscoveryService : IDisposable
     {
         string? localId = null;
         if (restrictToSameNetworkId && !string.IsNullOrEmpty(_workspaceState.CurrentFolder))
-        {
             localId = _syncManager.LoadManifest(_workspaceState.CurrentFolder).WanNetworkId;
-        }
 
         var peers = _discoveredPeers.ToList();
 
         if (restrictToSameNetworkId && !string.IsNullOrEmpty(localId))
-        {
             peers = peers.Where(kvp => kvp.Value.WanNetworkId == localId).ToList();
-        }
 
         return peers.Select((kvp, index) =>
         {
